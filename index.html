@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Homework</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .loader {
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .badge { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        input[type="file"] { display: none; }
+        .file-upload-label {
+            cursor: pointer;
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background-color: #4a5568;
+            color: white;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s;
+        }
+        .file-upload-label:hover { background-color: #2d3748; }
+        .modal-button:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+        }
+        .topic-button {
+             transition: background-color 0.2s, color 0.2s;
+        }
+        .hint-button {
+            background-color: #f6ad55; /* Orange-400 */
+        }
+        .hint-button:hover {
+            background-color: #ed8936; /* Orange-500 */
+        }
+        .hint-button:disabled {
+            background-color: #cbd5e0; /* Gray-400 */
+            cursor: not-allowed;
+        }
+        .hint-text {
+            background-color: #fefcbf; /* Yellow-100 */
+            border-left: 4px solid #f6e05e; /* Yellow-400 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="app" class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800">Daily Homework</h1>
+            <p class="text-lg text-gray-600 mt-2">Your daily dose of learning!</p>
+        </header>
+
+        <!-- Gamification Stats -->
+        <div id="gamification-stats" class="flex justify-center items-center gap-6 mb-8 text-lg">
+            <div class="flex items-center gap-2 bg-white p-3 rounded-lg shadow-sm">
+                <i class="fas fa-fire text-orange-500"></i>
+                <span class="font-semibold">Streak: <span id="streak-count">0</span> days</span>
+            </div>
+            <div class="flex items-center gap-2 bg-white p-3 rounded-lg shadow-sm">
+                <i class="fas fa-medal text-yellow-500"></i>
+                <span class="font-semibold">Badges: <span id="badge-count">0</span></span>
+            </div>
+        </div>
+        <div id="badge-display" class="flex justify-center flex-wrap gap-4 mb-8"></div>
+
+        <!-- Main View -->
+        <div id="main-view">
+            <!-- Subject Selection -->
+            <div id="subject-selection" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card bg-white p-6 rounded-lg shadow-md cursor-pointer" onclick="showTopicSelection('Maths')">
+                    <h2 class="text-2xl font-bold text-blue-600 mb-2">Mathematics</h2>
+                    <p class="text-gray-600">Fractions, Mass, Angles, and more.</p>
+                </div>
+                <div class="card bg-white p-6 rounded-lg shadow-md cursor-pointer" onclick="showTopicSelection('Science')">
+                    <h2 class="text-2xl font-bold text-green-600 mb-2">Science</h2>
+                    <p class="text-gray-600">Plant Life Cycle, and more.</p>
+                </div>
+            </div>
+
+            <!-- PDF Upload Section -->
+            <div class="card bg-white p-6 mt-6 rounded-lg shadow-md">
+                 <h2 class="text-2xl font-bold text-gray-700 mb-3">Upload a Question Sheet</h2>
+                 <p class="text-gray-600 mb-4">Upload a PDF with sample questions to generate a similar test.</p>
+                 <label for="pdf-upload" class="file-upload-label">
+                    <i class="fas fa-upload mr-2"></i> Choose PDF File
+                 </label>
+                 <input type="file" id="pdf-upload" accept=".pdf" onchange="handleFileUpload(event)">
+                 <p id="pdf-status" class="mt-3 text-sm text-gray-500">No file selected.</p>
+            </div>
+
+            <!-- Management Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div class="card bg-white p-6 rounded-lg shadow-md cursor-pointer" onclick="showHistory()">
+                    <h2 class="text-xl font-bold text-purple-600 mb-2"><i class="fas fa-history mr-2"></i>View My Homework History</h2>
+                    <p class="text-gray-600 text-sm">Check your past results and progress.</p>
+                </div>
+                <div class="card bg-white p-6 rounded-lg shadow-md cursor-pointer" onclick="showQuestionBank()">
+                    <h2 class="text-xl font-bold text-teal-600 mb-2"><i class="fas fa-database mr-2"></i>View Question Bank</h2>
+                    <p class="text-gray-600 text-sm">See all generated questions.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Homework Section -->
+        <div id="homework-section" class="hidden mt-8 bg-white p-6 rounded-lg shadow-lg"></div>
+        
+        <!-- History View Section -->
+        <div id="history-view" class="hidden mt-8 bg-white p-6 rounded-lg shadow-lg"></div>
+        
+        <!-- Question Bank View Section -->
+        <div id="question-bank-view" class="hidden mt-8 bg-white p-6 rounded-lg shadow-lg"></div>
+
+        <!-- Modals -->
+        <div id="topic-selection-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"></div>
+        <div id="source-selection-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"></div>
+        <div id="well-done-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"></div>
+    </div>
+
+    <script>
+        // Set workerSrc for pdf.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+
+        // DOM Elements
+        const mainView = document.getElementById('main-view');
+        const homeworkSection = document.getElementById('homework-section');
+        const historyView = document.getElementById('history-view');
+        const questionBankView = document.getElementById('question-bank-view');
+        const topicSelectionModal = document.getElementById('topic-selection-modal');
+        const sourceSelectionModal = document.getElementById('source-selection-modal');
+        const wellDoneModal = document.getElementById('well-done-modal');
+        const streakCountEl = document.getElementById('streak-count');
+        const badgeCountEl = document.getElementById('badge-count');
+        const badgeDisplayEl = document.getElementById('badge-display');
+        const pdfStatusEl = document.getElementById('pdf-status');
+
+        // App State
+        let currentSubject = '';
+        let currentTopic = '';
+        let questions = [];
+        let score = 0;
+        let homeworkHistory = [];
+        let questionBank = { Maths: {}, Science: {} };
+        let gamificationData = { streak: 0, lastCompleted: null, badges: [] };
+        let pdfText = '';
+
+        const topics = {
+            Maths: ['Fractions', 'Simplified Fractions', 'Mass', 'Angles', 'Length', 'Volume'],
+            Science: ['Plant Life Cycle', 'Diversity of Living Things', 'Magnets']
+        };
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            updateGamificationDisplay();
+            wellDoneModal.innerHTML = `<div class="bg-white p-8 rounded-lg shadow-xl text-center"><h2 class="text-3xl font-bold text-green-500 mb-4">Well Done!</h2><p class="text-lg text-gray-700">You've completed your homework for today.</p><button onclick="closeModal('well-done-modal')" class="mt-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg">Great!</button></div>`;
+        });
+
+        // --- Data Persistence ---
+        function loadData() {
+            const history = localStorage.getItem('homeworkHistory');
+            if (history) homeworkHistory = JSON.parse(history);
+            
+            const bank = localStorage.getItem('questionBank');
+            if (bank) {
+                questionBank = JSON.parse(bank);
+                if (!questionBank.Maths) questionBank.Maths = {};
+                if (!questionBank.Science) questionBank.Science = {};
+            } else {
+                questionBank = { Maths: {}, Science: {} };
+            }
+            
+            const gData = localStorage.getItem('gamificationData');
+            if (gData) { gamificationData = JSON.parse(gData); updateStreak(); }
+        }
+
+        function saveData() {
+            localStorage.setItem('homeworkHistory', JSON.stringify(homeworkHistory));
+            localStorage.setItem('questionBank', JSON.stringify(questionBank));
+            localStorage.setItem('gamificationData', JSON.stringify(gamificationData));
+        }
+        
+        // --- UI Navigation & Control ---
+        function showTopicSelection(subject) {
+            currentSubject = subject;
+            const subjectTopics = topics[subject];
+            let topicButtonsHtml = subjectTopics.map(topic => 
+                `<button onclick="showSourceSelection('${topic}')" class="topic-button w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-lg text-lg">${topic}</button>`
+            ).join('');
+
+            topicSelectionModal.innerHTML = `
+                <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-md w-full">
+                    <h2 class="text-2xl font-bold mb-6">Select a Topic for ${subject}</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${topicButtonsHtml}
+                    </div>
+                    <button onclick="closeModal('topic-selection-modal')" class="mt-8 text-gray-500 hover:text-gray-700">Cancel</button>
+                </div>`;
+            topicSelectionModal.classList.remove('hidden');
+        }
+
+        function showSourceSelection(topic) {
+            currentTopic = topic;
+            closeModal('topic-selection-modal');
+            const pdfButtonDisabled = !pdfText ? 'disabled' : '';
+            const pdfButtonTooltip = !pdfText ? 'title="Please upload a PDF first"' : '';
+
+            sourceSelectionModal.innerHTML = `
+                <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-sm w-full">
+                    <h2 class="text-2xl font-bold mb-6">Start ${currentTopic}</h2>
+                    <p class="text-gray-600 mb-6">How would you like to generate questions?</p>
+                    <div class="space-y-4">
+                        <button onclick="startTest(false)" class="modal-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors">
+                            <i class="fas fa-robot mr-2"></i> Generate with AI
+                        </button>
+                        <button onclick="startTest(true)" class="modal-button w-full bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors ${pdfButtonDisabled}" ${pdfButtonTooltip}>
+                            <i class="fas fa-file-pdf mr-2"></i> Generate from PDF
+                        </button>
+                    </div>
+                    <button onclick="closeModal('source-selection-modal')" class="mt-8 text-gray-500 hover:text-gray-700">Cancel</button>
+                </div>`;
+            sourceSelectionModal.classList.remove('hidden');
+        }
+
+        function startTest(fromPdf) {
+            closeModal('source-selection-modal');
+            mainView.classList.add('hidden');
+            homeworkSection.classList.remove('hidden');
+            homeworkSection.innerHTML = `
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold ${currentSubject === 'Maths' ? 'text-blue-600' : 'text-green-600'}">${currentTopic}</h2>
+                    <button onclick="goBack()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors">Back</button>
+                </div>
+                <div id="loader-container" class="flex justify-center items-center h-64"><div class="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-32 w-32"></div><p id="loader-text" class="ml-4 text-lg font-semibold text-gray-600"></p></div>
+                <div id="questions-container" class="hidden"></div>
+                <div id="evaluation-container" class="hidden"></div>
+                <button id="submit-button" class="hidden mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-lg" onclick="evaluateAnswers()">Check My Answers!</button>
+                <button id="try-again-button" class="hidden mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-lg" onclick="startTest(${fromPdf})">Try New Questions</button>
+            `;
+            score = 0;
+            fetchQuestions(fromPdf);
+        }
+
+        function goBack() {
+            mainView.classList.remove('hidden');
+            homeworkSection.classList.add('hidden');
+            historyView.classList.add('hidden');
+            questionBankView.classList.add('hidden');
+            pdfText = '';
+            pdfStatusEl.textContent = 'No file selected.';
+            pdfStatusEl.className = 'mt-3 text-sm text-gray-500';
+            document.getElementById('pdf-upload').value = '';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // --- PDF Handling ---
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            pdfText = '';
+            if (!file) {
+                pdfStatusEl.textContent = 'No file selected.';
+                pdfStatusEl.className = 'mt-3 text-sm text-gray-500';
+                return;
+            }
+            pdfStatusEl.textContent = `Processing ${file.name}...`;
+            pdfStatusEl.className = 'mt-3 text-sm text-blue-600 font-semibold';
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const typedarray = new Uint8Array(e.target.result);
+                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                    let text = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        text += content.items.map(item => item.str).join(' ') + '\n';
+                    }
+                    pdfText = text;
+                    pdfStatusEl.textContent = `Successfully loaded ${file.name}. Select a subject and topic, then generate questions from this file.`;
+                    pdfStatusEl.className = 'mt-3 text-sm text-green-600 font-semibold';
+                } catch (error) {
+                    console.error('Error processing PDF:', error);
+                    pdfStatusEl.textContent = 'Failed to process PDF. Please try another file.';
+                    pdfStatusEl.className = 'mt-3 text-sm text-red-600 font-semibold';
+                    pdfText = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- Question & Evaluation Logic ---
+        async function fetchQuestions(fromPdf) {
+            const loaderContainer = document.getElementById('loader-container');
+            const loaderText = document.getElementById('loader-text');
+            loaderContainer.classList.remove('hidden');
+            loaderText.textContent = 'Generating questions...';
+            
+            let prompt;
+            let difficultyModifier = '';
+            const topicStats = questionBank[currentSubject][currentTopic];
+            if (topicStats) {
+                if (topicStats.correct > topicStats.incorrect * 2) {
+                    difficultyModifier = ' Make the questions slightly harder than standard Primary 3 level.';
+                } else if (topicStats.incorrect > topicStats.correct * 2) {
+                    difficultyModifier = ' Make the questions slightly easier and more foundational than standard Primary 3 level.';
+                }
+            }
+
+            if (fromPdf && pdfText) {
+                prompt = `Act as a Primary 3 teacher in Singapore. Use the following text extracted from a PDF as a reference for style, difficulty, and format: --- PDF SAMPLE START --- ${pdfText} --- PDF SAMPLE END --- Based on these samples, create 5 new and different questions for the topic "${currentTopic}". Ensure the new questions align with the Singapore Primary 3 syllabus.${difficultyModifier}`;
+            } else {
+                prompt = `Act as a Primary 3 teacher in Singapore. Create 5 daily homework questions based on the Singapore Primary 3 syllabus for the specific topic of "${currentTopic}". The questions should be suitable for a Primary 3 student.${difficultyModifier}`;
+            }
+            
+            const schema = { type: "OBJECT", properties: { questions: { type: "ARRAY", items: { type: "OBJECT", properties: { question: { type: "STRING" } }, required: ["question"] } } } };
+
+            try {
+                const response = await callGeminiAPI(prompt, { responseMimeType: "application/json", responseSchema: schema });
+                questions = response.questions;
+                displayQuestions();
+            } catch (error) {
+                console.error("Error fetching questions:", error);
+                document.getElementById('questions-container').innerHTML = `<p class="text-red-500 text-center">Sorry, something went wrong fetching questions. Please try again.</p>`;
+            } finally {
+                loaderContainer.classList.add('hidden');
+                document.getElementById('questions-container').classList.remove('hidden');
+                document.getElementById('submit-button').classList.remove('hidden');
+            }
+        }
+
+        function displayQuestions() {
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+            questions.forEach((q, index) => {
+                const qElement = document.createElement('div');
+                qElement.className = 'mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200';
+                qElement.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <p class="font-semibold text-lg mb-2 flex-grow">${index + 1}. ${q.question}</p>
+                        <button id="hint-btn-${index}" onclick="getHint(${index})" class="hint-button text-white font-bold py-1 px-3 rounded-lg text-sm ml-4 flex-shrink-0">
+                            <i class="fas fa-lightbulb"></i> Hint
+                        </button>
+                    </div>
+                    <div id="hint-text-${index}" class="hidden mt-2 p-2 hint-text rounded"></div>
+                    <input type="text" id="answer-${index}" class="answer-input w-full p-2 border border-gray-300 rounded-md shadow-sm mt-2" placeholder="Your answer here...">
+                `;
+                container.appendChild(qElement);
+            });
+        }
+
+        async function getHint(index) {
+            const hintBtn = document.getElementById(`hint-btn-${index}`);
+            const hintTextEl = document.getElementById(`hint-text-${index}`);
+            hintBtn.disabled = true;
+            hintBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            const questionText = questions[index].question;
+            const prompt = `Provide a simple one-sentence hint for a Primary 3 student for the following question, but do not give away the answer: "${questionText}"`;
+
+            try {
+                const response = await callGeminiAPI(prompt);
+                hintTextEl.textContent = `Hint: ${response}`;
+                hintTextEl.classList.remove('hidden');
+                hintBtn.classList.add('hidden');
+            } catch (error) {
+                console.error("Error fetching hint:", error);
+                hintTextEl.textContent = "Sorry, couldn't get a hint right now.";
+                hintTextEl.classList.remove('hidden');
+                hintBtn.disabled = false;
+                hintBtn.innerHTML = '<i class="fas fa-lightbulb"></i> Hint';
+            }
+        }
+
+        async function evaluateAnswers() {
+            const loaderContainer = document.getElementById('loader-container');
+            const loaderText = document.getElementById('loader-text');
+            loaderContainer.classList.remove('hidden');
+            loaderText.textContent = 'Evaluating answers...';
+            document.getElementById('questions-container').classList.add('hidden');
+            document.getElementById('submit-button').classList.add('hidden');
+            
+            const evaluationPrompt = `I am a Primary 3 student in Singapore. Please evaluate my answers for my ${currentSubject} homework on the topic "${currentTopic}". For each question, tell me if I am correct, provide the correct answer, and a simple, encouraging, one-sentence explanation. Questions and Answers: ${questions.map((q, i) => `Question ${i+1}: ${q.question}\nMy Answer ${i+1}: ${document.getElementById('answer-' + i).value}`).join('\n\n')}`;
+            
+            try {
+                const schema = { type: "OBJECT", properties: { evaluation: { type: "ARRAY", items: { type: "OBJECT", properties: { is_correct: { type: "BOOLEAN" }, correct_answer: { type: "STRING" }, explanation: { type: "STRING" } }, required: ["is_correct", "correct_answer", "explanation"] } } } };
+                const response = await callGeminiAPI(evaluationPrompt, { responseMimeType: "application/json", responseSchema: schema });
+
+                const fullEvaluation = response.evaluation.map((item, index) => {
+                    if (item.is_correct) score++;
+                    return { ...item, question: questions[index].question, user_answer: document.getElementById('answer-' + index).value || "No answer given" };
+                });
+                
+                if (!questionBank[currentSubject][currentTopic]) {
+                    questionBank[currentSubject][currentTopic] = { questions: [], correct: 0, incorrect: 0 };
+                }
+
+                fullEvaluation.forEach(result => {
+                    if (result.is_correct) {
+                        questionBank[currentSubject][currentTopic].correct++;
+                    } else {
+                        questionBank[currentSubject][currentTopic].incorrect++;
+                    }
+
+                    const questionInBank = questionBank[currentSubject][currentTopic].questions.find(q => q.question === result.question);
+                    if (!questionInBank) {
+                        questionBank[currentSubject][currentTopic].questions.push({
+                            question: result.question,
+                            correct_answer: result.correct_answer,
+                            explanation: result.explanation
+                        });
+                    }
+                });
+
+                displayEvaluation(fullEvaluation);
+                saveTestResult(fullEvaluation);
+                handleCompletion(fullEvaluation);
+
+            } catch (error) {
+                console.error("Error evaluating answers:", error);
+                document.getElementById('evaluation-container').innerHTML = `<p class="text-red-500 text-center">Sorry, something went wrong during evaluation. Please try again.</p>`;
+            } finally {
+                loaderContainer.classList.add('hidden');
+                document.getElementById('evaluation-container').classList.remove('hidden');
+                document.getElementById('try-again-button').classList.remove('hidden');
+            }
+        }
+
+        function displayEvaluation(evaluation) {
+            const container = document.getElementById('evaluation-container');
+            container.innerHTML = `<h3 class="text-2xl font-bold mb-4 text-center">Here are your results! You scored ${score} out of ${questions.length}.</h3>`;
+            evaluation.forEach((result, index) => {
+                const resultElement = document.createElement('div');
+                resultElement.className = `mb-4 p-4 rounded-lg border ${result.is_correct ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`;
+                resultElement.innerHTML = `<p class="font-semibold text-lg">${index + 1}. ${result.question}</p><p class="mt-2">Your answer: <span class="font-medium">${result.user_answer}</span></p><div class="mt-2 p-3 rounded-md ${result.is_correct ? 'bg-green-100' : 'bg-red-100'}"><p class="font-bold ${result.is_correct ? 'text-green-700' : 'text-red-700'}">${result.is_correct ? '<i class="fas fa-check-circle mr-2"></i>Correct!' : '<i class="fas fa-times-circle mr-2"></i>Not quite!'} (+${result.is_correct ? 1 : 0} point)</p><p class="mt-1">Correct Answer: <span class="font-semibold">${result.correct_answer}</span></p><p class="mt-1 text-gray-700"><em>${result.explanation}</em></p></div>`;
+                container.appendChild(resultElement);
+            });
+        }
+        
+        // --- History, Bank & Gamification ---
+        function saveTestResult(evaluation) {
+            const result = { date: new Date().toISOString(), subject: currentSubject, topic: currentTopic, score: score, total: questions.length, results: evaluation };
+            homeworkHistory.unshift(result);
+            if (homeworkHistory.length > 20) homeworkHistory.pop();
+            saveData();
+        }
+
+        function showHistory() {
+            mainView.classList.add('hidden');
+            historyView.classList.remove('hidden');
+            historyView.innerHTML = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-purple-600">My History</h2><button onclick="goBack()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg">Back</button></div><div id="history-content"></div>`;
+            const contentEl = document.getElementById('history-content');
+            if (homeworkHistory.length === 0) { contentEl.innerHTML = '<p class="text-center text-gray-500">You haven\'t completed any homework yet.</p>'; return; }
+            homeworkHistory.forEach(test => {
+                const testEl = document.createElement('div');
+                testEl.className = 'mb-6 p-4 border border-gray-200 rounded-lg';
+                const testDate = new Date(test.date);
+                testEl.innerHTML = `<div class="flex justify-between items-center"><div><h3 class="text-xl font-bold ${test.subject === 'Maths' ? 'text-blue-600' : 'text-green-600'}">${test.subject}: ${test.topic}</h3><p class="text-sm text-gray-500">${testDate.toLocaleDateString('en-SG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p></div><div class="text-2xl font-bold text-gray-700">${test.score}/${test.total}</div></div><div class="mt-4">${test.results.map((r, i) => `<div class="mt-4 p-3 rounded-md ${r.is_correct ? 'bg-green-50' : 'bg-red-50'}"><p class="font-semibold">${i+1}. ${r.question}</p><p class="text-sm mt-1">Your answer: ${r.user_answer}</p><p class="text-sm mt-1">Correct answer: ${r.correct_answer}</p></div>`).join('')}</div>`;
+                contentEl.appendChild(testEl);
+            });
+        }
+
+        function toggleAnswer(elementId) {
+            const element = document.getElementById(elementId);
+            const button = element.previousElementSibling.querySelector('button');
+            if (element.classList.toggle('hidden')) {
+                button.innerHTML = 'Show Answer';
+            } else {
+                button.innerHTML = 'Hide Answer';
+            }
+        }
+
+        function showQuestionBank() {
+            mainView.classList.add('hidden');
+            questionBankView.classList.remove('hidden');
+            let content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-teal-600">Question Bank</h2><button onclick="goBack()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg">Back</button></div>`;
+            content += '<div>';
+            for (const subject in questionBank) {
+                content += `<div class="mb-8"><h3 class="text-2xl font-bold mb-4 ${subject === 'Maths' ? 'text-blue-600' : 'text-green-600'}">${subject}</h3>`;
+                const subjectTopics = Object.keys(questionBank[subject]);
+                if (subjectTopics.length > 0) {
+                    subjectTopics.forEach(topic => {
+                        const topicData = questionBank[subject][topic];
+                        const questionsForTopic = topicData.questions;
+                        content += `<div class="ml-4 mb-4"><h4 class="text-xl font-semibold mb-2">${topic} (${questionsForTopic.length} questions)</h4>`;
+                        if (questionsForTopic.length > 0) {
+                             content += '<ul class="space-y-2">';
+                            questionsForTopic.forEach((q, index) => {
+                                const answerId = `answer-${subject}-${topic.replace(/\s+/g, '-')}-${index}`;
+                                content += `<li class="p-3 bg-gray-50 rounded-lg">
+                                    <div class="flex justify-between items-center">
+                                        <p class="flex-1 pr-4">${index + 1}. ${q.question}</p>
+                                        <button onclick="toggleAnswer('${answerId}')" class="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-lg text-sm flex-shrink-0">Show Answer</button>
+                                    </div>
+                                    <div id="${answerId}" class="hidden mt-3 pt-3 border-t border-gray-200">
+                                        <p><strong>Answer:</strong> ${q.correct_answer || 'Not yet evaluated'}</p>
+                                        <p class="text-sm text-gray-600 mt-1"><em><strong>Explanation:</strong> ${q.explanation || 'Answer a quiz with this question to see the explanation.'}</em></p>
+                                    </div></li>`;
+                            });
+                            content += '</ul>';
+                        }
+                        content += `</div>`;
+                    });
+                } else { content += '<p class="text-gray-500">No questions generated for this subject yet.</p>'; }
+                content += '</div>';
+            }
+            content += '</div>';
+            questionBankView.innerHTML = content;
+        }
+
+        function updateStreak() {
+            if (!gamificationData.lastCompleted) { gamificationData.streak = 0; return; }
+            const today = new Date().setHours(0, 0, 0, 0);
+            const lastDay = new Date(gamificationData.lastCompleted).setHours(0, 0, 0, 0);
+            const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+            if (lastDay === today) {} else if (lastDay < yesterday) { gamificationData.streak = 0; }
+        }
+        
+        function handleCompletion(evaluation) {
+            const today = new Date().setHours(0, 0, 0, 0);
+            const lastDay = gamificationData.lastCompleted ? new Date(gamificationData.lastCompleted).setHours(0, 0, 0, 0) : null;
+            if (lastDay !== today) { updateStreak(); gamificationData.streak++; gamificationData.lastCompleted = new Date().toISOString(); }
+            if (gamificationData.streak === 3 && !gamificationData.badges.includes('3-Day Streak')) { gamificationData.badges.push('3-Day Streak'); }
+            if (gamificationData.streak === 7 && !gamificationData.badges.includes('7-Day Streak')) { gamificationData.badges.push('7-Day Streak'); }
+            if (evaluation.every(e => e.is_correct) && !gamificationData.badges.includes('Perfect Score!')) { gamificationData.badges.push('Perfect Score!'); }
+            if (homeworkHistory.length >= 10 && !gamificationData.badges.includes('Homework Hero')) { gamificationData.badges.push('Homework Hero'); }
+            saveData();
+            updateGamificationDisplay();
+            if (evaluation.every(e => e.is_correct)) { setTimeout(() => wellDoneModal.classList.remove('hidden'), 500); }
+        }
+
+        function updateGamificationDisplay() {
+            streakCountEl.textContent = gamificationData.streak;
+            badgeCountEl.textContent = gamificationData.badges.length;
+            badgeDisplayEl.innerHTML = '';
+            const badgeIcons = { '3-Day Streak': { icon: 'fa-star', color: 'text-yellow-600' }, '7-Day Streak': { icon: 'fa-trophy', color: 'text-gray-400' }, 'Perfect Score!': { icon: 'fa-gem', color: 'text-yellow-400' }, 'Homework Hero': { icon: 'fa-shield-alt', color: 'text-blue-500' } };
+            gamificationData.badges.forEach(name => {
+                const info = badgeIcons[name] || { icon: 'fa-medal', color: 'text-gray-400' };
+                const el = document.createElement('div');
+                el.className = 'badge flex flex-col items-center p-2 bg-white rounded-lg shadow-sm';
+                el.innerHTML = `<i class="fas ${info.icon} fa-2x ${info.color}"></i><span class="text-xs font-semibold mt-1 text-center">${name}</span>`;
+                badgeDisplayEl.appendChild(el);
+            });
+        }
+
+        // --- Gemini API Calls ---
+        async function callGeminiAPI(prompt, generationConfig = null) {
+            const backendUrl = 'http://localhost:5001/api/generate';
+            
+            const payload = {
+                prompt: prompt,
+            };
+
+            if (generationConfig) {
+                payload.generationConfig = generationConfig;
+            }
+
+            try {
+                const response = await fetch(backendUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error("Error from backend:", errorData);
+                    throw new Error(`API call failed: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    if (generationConfig && generationConfig.responseMimeType === "application/json") {
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            console.error("Failed to parse JSON response from backend:", text);
+                            throw new Error("Invalid JSON response from API.");
+                        }
+                    }
+                    return text;
+                } else {
+                    if (result.promptFeedback?.blockReason) {
+                        throw new Error(`Request blocked: ${result.promptFeedback.blockReason}`);
+                    }
+                    throw new Error("API response was empty or malformed.");
+                }
+            } catch (error) {
+                console.error("Network or fetch error:", error);
+                throw error;
+            }
+        }
+    </script>
+</body>
+</html>
