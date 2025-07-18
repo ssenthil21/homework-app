@@ -19,7 +19,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 # On Windows: set GOOGLE_API_KEY="YOUR_API_KEY"
 # Then run: python main.py
 API_KEY = os.environ.get("GOOGLE_API_KEY")
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyAGJTg9ibD2iyi6rRts-CJic4S8FQPqjWQ"
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
 
 # --- API Endpoint for Generating Questions and Evaluations ---
 @app.route('/api/generate', methods=['POST'])
