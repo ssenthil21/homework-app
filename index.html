@@ -337,7 +337,7 @@
             const schema = { type: "OBJECT", properties: { questions: { type: "ARRAY", items: { type: "OBJECT", properties: { question: { type: "STRING" } }, required: ["question"] } } } };
 
             try {
-                const response = await callGeminiAPI(prompt, { responseMimeType: "application/json", responseSchema: schema });
+                const response = await callGeminiAPI('/api/generate', prompt, { responseMimeType: "application/json", responseSchema: schema });
                 questions = response.questions;
                 displayQuestions();
             } catch (error) {
@@ -367,7 +367,7 @@
                     <input type="text" id="answer-${index}" class="answer-input w-full p-2 border border-gray-300 rounded-md shadow-sm mt-2" placeholder="Your answer here...">
                 `;
                 container.appendChild(qElement);
-            });
+            }
         }
 
         async function getHint(index) {
@@ -380,7 +380,7 @@
             const prompt = `Provide a simple one-sentence hint for a Primary 3 student for the following question, but do not give away the answer: "${questionText}"`;
 
             try {
-                const response = await callGeminiAPI(prompt);
+                const response = await callGeminiAPI('/api/get-hint', prompt);
                 hintTextEl.textContent = `Hint: ${response}`;
                 hintTextEl.classList.remove('hidden');
                 hintBtn.classList.add('hidden');
@@ -405,7 +405,7 @@
             
             try {
                 const schema = { type: "OBJECT", properties: { evaluation: { type: "ARRAY", items: { type: "OBJECT", properties: { is_correct: { type: "BOOLEAN" }, correct_answer: { type: "STRING" }, explanation: { type: "STRING" } }, required: ["is_correct", "correct_answer", "explanation"] } } } };
-                const response = await callGeminiAPI(evaluationPrompt, { responseMimeType: "application/json", responseSchema: schema });
+                const response = await callGeminiAPI('/api/generate', evaluationPrompt, { responseMimeType: "application/json", responseSchema: schema });
 
                 const fullEvaluation = response.evaluation.map((item, index) => {
                     if (item.is_correct) score++;
@@ -565,9 +565,9 @@
         }
 
         // --- Gemini API Calls ---
-        async function callGeminiAPI(prompt, generationConfig = null) {
-            const backendUrl = 'https://homework-app-psi.vercel.app/api/generate';
-			//const backendUrl = 'http://localhost:5001/api/generate';
+        async function callGeminiAPI(endpoint, prompt, generationConfig = null) {
+            const baseUrl = 'https://homework-app-psi.vercel.app';
+            const backendUrl = baseUrl + endpoint;
             
             const payload = {
                 prompt: prompt,
