@@ -367,7 +367,7 @@
                     <input type="text" id="answer-${index}" class="answer-input w-full p-2 border border-gray-300 rounded-md shadow-sm mt-2" placeholder="Your answer here...">
                 `;
                 container.appendChild(qElement);
-            }
+            });
         }
 
         async function getHint(index) {
@@ -566,7 +566,10 @@
 
         // --- Gemini API Calls ---
         async function callGeminiAPI(endpoint, prompt, generationConfig = null) {
-            const baseUrl = 'https://homework-app-psi.vercel.app';
+            const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                ? 'http://localhost:5001' 
+                : 'https://homework-app-psi.vercel.app';
+            
             const backendUrl = baseUrl + endpoint;
             
             const payload = {
