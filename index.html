@@ -566,7 +566,8 @@
 
         // --- Gemini API Calls ---
         async function callGeminiAPI(prompt, generationConfig = null) {
-            const backendUrl = 'http://localhost:5001/api/generate';
+            const backendUrl = 'https://homework-app-psi.vercel.app/api/generate';
+			//const backendUrl = 'http://localhost:5001/api/generate';
             
             const payload = {
                 prompt: prompt,
