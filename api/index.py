@@ -11,7 +11,7 @@ app = Flask(__name__)
 # IMPORTANT: Set up CORS for your Vercel domain and for local testing
 # This allows your frontend to talk to your backend from both environments
 CORS(app, resources={
-    r"/*": {
+    r"/api/*": {
         "origins": ["https://homework-app-psi.vercel.app", "http://localhost:8000"]
     }
 })
@@ -21,8 +21,8 @@ API_KEY = os.environ.get("GOOGLE_API_KEY")
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
 
 # --- API Endpoint for Generating Questions and Evaluations ---
-# Vercel routes /api/generate to this function, so the route inside Flask is just '/generate'
-@app.route('/generate', methods=['POST'])
+# The vercel.json rewrite sends the full path to Flask
+@app.route('/api/generate', methods=['POST'])
 def generate_content():
     if not API_KEY:
         return jsonify({"error": "API key is not configured on the server."}), 500
@@ -55,8 +55,8 @@ def generate_content():
         return jsonify({"error": "An internal server error occurred."}), 500
 
 # --- API Endpoint for Getting Hints ---
-# Vercel routes /api/get-hint to this function, so the route inside Flask is just '/get-hint'
-@app.route('/get-hint', methods=['POST'])
+# The vercel.json rewrite sends the full path to Flask
+@app.route('/api/get-hint', methods=['POST'])
 def get_hint():
     if not API_KEY:
         return jsonify({"error": "API key is not configured on the server."}), 500
