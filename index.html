@@ -3,373 +3,584 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Homework</title>
+    <title>Cleverify - Daily Homework Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <!-- PDF.js library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
+    
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .card {
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .view { display: none; }
+        .view.active { display: block; }
         .loader {
-            border-top-color: #3498db;
+            border-top-color: #4f46e5;
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .badge { animation: fadeIn 0.5s ease-in-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.8); }
-            to { opacity: 1; transform: scale(1); }
+        
+        @keyframes card-enter {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        input[type="file"] { display: none; }
-        .file-upload-label {
-            cursor: pointer;
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            background-color: #4a5568;
-            color: white;
+        .card-animated {
+            animation: card-enter 0.5s ease-out forwards;
+        }
+
+        .sidebar-link {
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .sidebar-link.active {
+            background-color: #4f46e5; color: white;
+        }
+        .progress-bar-fill {
+            transition: width 0.5s ease-in-out;
+        }
+        .student-card, .selection-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s, background-color 0.2s;
+        }
+        .student-card:hover, .selection-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .selection-card.selected {
+            border-color: #4f46e5;
+            background-color: #eef2ff;
+            box-shadow: 0 0 0 3px #4f46e5;
+            transform: translateY(-2px) scale(1.02);
+        }
+        .history-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            padding: 0 1rem;
+        }
+        .history-details.open {
+            max-height: 1000px; /* Arbitrary large value */
+            padding: 1rem 1rem;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        .rich-text-editor {
+            border: 1px solid #cbd5e1;
             border-radius: 0.5rem;
-            transition: background-color 0.2s;
+            min-height: 120px;
+            padding: 0.75rem;
         }
-        .file-upload-label:hover { background-color: #2d3748; }
-        .modal-button:disabled {
-            background-color: #a0aec0;
-            cursor: not-allowed;
+        .rich-text-editor:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.4);
         }
-        .topic-button {
-             transition: background-color 0.2s, color 0.2s;
+        .editor-toolbar button {
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
-        .hint-button {
-            background-color: #f6ad55; /* Orange-400 */
+        .color-swatch {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
         }
-        .hint-button:hover {
-            background-color: #ed8936; /* Orange-500 */
+        .color-swatch:hover {
+            border-color: #4f46e5;
         }
-        .hint-button:disabled {
-            background-color: #cbd5e0; /* Gray-400 */
-            cursor: not-allowed;
+        .btn-interactive {
+            transition: transform 0.1s ease-in-out;
         }
-        .hint-text {
-            background-color: #fefcbf; /* Yellow-100 */
-            border-left: 4px solid #f6e05e; /* Yellow-400 */
+        .btn-interactive:active {
+            transform: scale(0.98);
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="text-slate-700">
 
-    <div id="app" class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800">Daily Homework</h1>
-            <p class="text-lg text-gray-600 mt-2">Your daily dose of learning!</p>
-        </header>
+    <div id="app" class="container mx-auto p-4 sm:p-6 lg:p-8">
 
-        <!-- Gamification Stats -->
-        <div id="gamification-stats" class="flex justify-center items-center gap-6 mb-8 text-lg">
-            <div class="flex items-center gap-2 bg-white p-3 rounded-lg shadow-sm">
-                <i class="fas fa-fire text-orange-500"></i>
-                <span class="font-semibold">Streak: <span id="streak-count">0</span> days</span>
-            </div>
-            <div class="flex items-center gap-2 bg-white p-3 rounded-lg shadow-sm">
-                <i class="fas fa-medal text-yellow-500"></i>
-                <span class="font-semibold">Badges: <span id="badge-count">0</span></span>
-            </div>
-        </div>
-        <div id="badge-display" class="flex justify-center flex-wrap gap-4 mb-8"></div>
-
-        <!-- Main View -->
-        <div id="main-view">
-            <!-- Subject Selection -->
-            <div id="subject-selection" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="card bg-white p-6 rounded-lg shadow-md cursor-pointer" onclick="showTopicSelection('Maths')">
-                    <h2 class="text-2xl font-bold text-blue-600 mb-2">Mathematics</h2>
-                    <p class="text-gray-600">Fractions, Mass, Angles, and more.</p>
+        <!-- Parent Dashboard View -->
+        <div id="parent-dashboard-view" class="view active">
+            <header class="bg-indigo-700 text-white p-6 rounded-xl shadow-lg mb-10">
+                <div class="flex justify-between items-center">
+                    <h1 class="text-3xl font-extrabold">Parent Dashboard</h1>
+                    <button onclick="flushLocalStorage()" class="btn-interactive bg-red-500/80 hover:bg-red-500 font-semibold py-2 px-4 rounded-lg">
+                        <i class="fas fa-trash-alt mr-2"></i>Flush Data
+                    </button>
                 </div>
-                <div class="card bg-white p-6 rounded-lg shadow-md cursor-pointer" onclick="showTopicSelection('Science')">
-                    <h2 class="text-2xl font-bold text-green-600 mb-2">Science</h2>
-                    <p class="text-gray-600">Plant Life Cycle, and more.</p>
+            </header>
+            <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
+                <h2 class="text-3xl font-bold text-slate-900 mb-2">Student Profiles</h2>
+                <p class="text-slate-600 mb-8">Select a student to view their workspace, or add a new profile (max 2 for trial).</p>
+                <div id="student-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                <div id="add-student-form" class="mt-10 pt-6 border-t border-slate-200">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800">Add a New Student</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input type="text" id="student-name-input" placeholder="Student's Name" class="p-3 border border-slate-300 rounded-lg w-full focus:ring-2 focus:ring-indigo-500">
+                        <select id="student-level-select" class="p-3 border border-slate-300 rounded-lg w-full bg-white focus:ring-2 focus:ring-indigo-500">
+                            <option value="P1">Primary 1</option><option value="P2">Primary 2</option><option value="P3">Primary 3</option>
+                            <option value="P4">Primary 4</option><option value="P5">Primary 5</option><option value="P6">Primary 6</option>
+                        </select>
+                        <button id="add-student-button" onclick="addStudent()" class="btn-interactive bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg">Add Student</button>
+                    </div>
+                     <p id="student-limit-msg" class="text-sm text-slate-500 mt-4 hidden">You have reached the maximum of 2 students for this trial.</p>
                 </div>
             </div>
-
-            <!-- PDF Upload Section -->
-            <div class="card bg-white p-6 mt-6 rounded-lg shadow-md">
-                 <h2 class="text-2xl font-bold text-gray-700 mb-3">Upload a Question Sheet</h2>
-                 <p class="text-gray-600 mb-4">Upload a PDF with sample questions to generate a similar test.</p>
-                 <label for="pdf-upload" class="file-upload-label">
-                    <i class="fas fa-upload mr-2"></i> Choose PDF File
-                 </label>
-                 <input type="file" id="pdf-upload" accept=".pdf" onchange="handleFileUpload(event)">
-                 <p id="pdf-status" class="mt-3 text-sm text-gray-500">No file selected.</p>
-            </div>
-
-            <!-- Management Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <div class="card bg-white p-6 rounded-lg shadow-md cursor-pointer" onclick="showHistory()">
-                    <h2 class="text-xl font-bold text-purple-600 mb-2"><i class="fas fa-history mr-2"></i>View My Homework History</h2>
-                    <p class="text-gray-600 text-sm">Check your past results and progress.</p>
-                </div>
-                <div class="card bg-white p-6 rounded-lg shadow-md cursor-pointer" onclick="showQuestionBank()">
-                    <h2 class="text-xl font-bold text-teal-600 mb-2"><i class="fas fa-database mr-2"></i>View Question Bank</h2>
-                    <p class="text-gray-600 text-sm">See all generated questions.</p>
+            <div id="parent-analytics" class="mt-10 bg-white p-8 rounded-xl shadow-lg border border-slate-200">
+                <h2 class="text-3xl font-bold text-slate-900 mb-2">Daily Performance (Last 7 Days)</h2>
+                <div id="parent-chart-container" class="chart-container mt-6">
+                    <p class="text-center text-slate-500 h-full flex items-center justify-center">Select a student profile to see their daily progress.</p>
                 </div>
             </div>
         </div>
-
-        <!-- Homework Section -->
-        <div id="homework-section" class="hidden mt-8 bg-white p-6 rounded-lg shadow-lg"></div>
         
-        <!-- History View Section -->
-        <div id="history-view" class="hidden mt-8 bg-white p-6 rounded-lg shadow-lg"></div>
-        
-        <!-- Question Bank View Section -->
-        <div id="question-bank-view" class="hidden mt-8 bg-white p-6 rounded-lg shadow-lg"></div>
+        <!-- Student Workspace View -->
+        <div id="student-workspace-view" class="view">
+            <div class="flex flex-col md:flex-row gap-8">
+                <!-- Sidebar -->
+                <aside class="w-full md:w-64 flex-shrink-0">
+                    <div class="bg-slate-800 text-slate-200 p-6 rounded-xl shadow-lg h-full">
+                        <h2 class="text-xl font-bold text-white mb-6">Cleverify</h2>
+                        <nav class="space-y-2">
+                            <a href="#" id="nav-dashboard" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('dashboard')"><i class="fas fa-home w-6 mr-2"></i>Dashboard</a>
+                            <a href="#" id="nav-quiz" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('quiz-setup')"><i class="fas fa-rocket w-6 mr-2"></i>Start New Quiz</a>
+                            <a href="#" id="nav-history" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('history')"><i class="fas fa-history w-6 mr-2"></i>My History</a>
+                            <a href="#" id="nav-bank" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('bank')"><i class="fas fa-database w-6 mr-2"></i>Question Bank</a>
+                            <a href="#" id="nav-parent" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold mt-8" onclick="changeView('parent-dashboard-view')"><i class="fas fa-user-shield w-6 mr-2"></i>Parent View</a>
+                        </nav>
+                    </div>
+                </aside>
 
-        <!-- Modals -->
-        <div id="topic-selection-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"></div>
-        <div id="source-selection-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"></div>
-        <div id="well-done-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"></div>
+                <!-- Main Content -->
+                <main class="flex-grow">
+                    <header class="bg-indigo-700 text-white p-4 rounded-xl shadow-lg flex justify-between items-center mb-8">
+                        <div id="student-header" class="text-xl font-bold"></div>
+                        <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-2"><i class="fas fa-fire text-orange-400"></i><span id="student-streak">0</span></div>
+                            <div class="flex items-center gap-2"><i class="fas fa-medal text-yellow-400"></i><span id="student-badges">0</span></div>
+                        </div>
+                    </header>
+                    <div id="student-main-content">
+                        <!-- Student sub-views will be rendered here -->
+                    </div>
+                </main>
+            </div>
+        </div>
+
     </div>
-
+    
     <script>
-        // Set workerSrc for pdf.js
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+        // --- Master Configuration ---
+        const masterConfig = {
+            P1: { Maths: ['Numbers to 20', 'Addition & Subtraction'], Science: ['Living & Non-Living Things'] },
+            P2: { Maths: ['Numbers to 100', 'Multiplication Tables'], Science: ['Life Cycles'] },
+            P3: { Maths: ['Fractions', 'Mass', 'Angles'], Science: ['Plant Systems', 'Magnets'] },
+            P4: { Maths: ['Decimals', 'Area & Perimeter'], Science: ['Energy', 'Matter'] },
+            P5: { Maths: ['Percentage', 'Volume of Cubes'], Science: ['Human Body Systems', 'Water Cycle'] },
+            P6: { Maths: ['Algebra', 'Speed'], Science: ['Forces', 'Interactions in Ecosystems'] },
+        };
+        const stickers = ['⭐', '👍', '🎉', '🏆', '💯', '✨', '🤩', '🚀'];
 
-        // DOM Elements
-        const mainView = document.getElementById('main-view');
-        const homeworkSection = document.getElementById('homework-section');
-        const historyView = document.getElementById('history-view');
-        const questionBankView = document.getElementById('question-bank-view');
-        const topicSelectionModal = document.getElementById('topic-selection-modal');
-        const sourceSelectionModal = document.getElementById('source-selection-modal');
-        const wellDoneModal = document.getElementById('well-done-modal');
-        const streakCountEl = document.getElementById('streak-count');
-        const badgeCountEl = document.getElementById('badge-count');
-        const badgeDisplayEl = document.getElementById('badge-display');
-        const pdfStatusEl = document.getElementById('pdf-status');
-
-        // App State
-        let currentSubject = '';
-        let currentTopic = '';
+        // --- App State ---
+        let currentStudent = null;
+        let studentCache = {};
         let questions = [];
         let score = 0;
-        let homeworkHistory = [];
-        let questionBank = { Maths: {}, Science: {} };
-        let gamificationData = { streak: 0, lastCompleted: null, badges: [] };
-        let pdfText = '';
+        let dailyPerformanceChart = null;
+        
+        // --- View Controller ---
+        function changeView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
 
-        const topics = {
-            Maths: ['Fractions', 'Simplified Fractions', 'Mass', 'Angles', 'Length', 'Volume'],
-            Science: ['Plant Life Cycle', 'Diversity of Living Things', 'Magnets']
-        };
-
-        // --- Initialization ---
+        // --- App Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
-            loadData();
-            updateGamificationDisplay();
-            wellDoneModal.innerHTML = `<div class="bg-white p-8 rounded-lg shadow-xl text-center"><h2 class="text-3xl font-bold text-green-500 mb-4">Well Done!</h2><p class="text-lg text-gray-700">You've completed your homework for today.</p><button onclick="closeModal('well-done-modal')" class="mt-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg">Great!</button></div>`;
+            renderParentDashboard();
         });
 
-        // --- Data Persistence ---
-        function loadData() {
-            const history = localStorage.getItem('homeworkHistory');
-            if (history) homeworkHistory = JSON.parse(history);
-            
-            const bank = localStorage.getItem('questionBank');
-            if (bank) {
-                questionBank = JSON.parse(bank);
-                if (!questionBank.Maths) questionBank.Maths = {};
-                if (!questionBank.Science) questionBank.Science = {};
-            } else {
-                questionBank = { Maths: {}, Science: {} };
-            }
-            
-            const gData = localStorage.getItem('gamificationData');
-            if (gData) { gamificationData = JSON.parse(gData); updateStreak(); }
+        // --- Data Persistence (localStorage) ---
+        function getStudents() {
+            return JSON.parse(localStorage.getItem('cleverifyAppStudents')) || [];
         }
 
-        function saveData() {
-            localStorage.setItem('homeworkHistory', JSON.stringify(homeworkHistory));
-            localStorage.setItem('questionBank', JSON.stringify(questionBank));
-            localStorage.setItem('gamificationData', JSON.stringify(gamificationData));
+        function saveStudents(students) {
+            localStorage.setItem('cleverifyAppStudents', JSON.stringify(students));
+        }
+
+        function getHistory(studentId) {
+            const allHistory = JSON.parse(localStorage.getItem('cleverifyAppHistory')) || {};
+            return allHistory[studentId] || [];
         }
         
-        // --- UI Navigation & Control ---
-        function showTopicSelection(subject) {
-            currentSubject = subject;
-            const subjectTopics = topics[subject];
-            let topicButtonsHtml = subjectTopics.map(topic => 
-                `<button onclick="showSourceSelection('${topic}')" class="topic-button w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-lg text-lg">${topic}</button>`
-            ).join('');
-
-            topicSelectionModal.innerHTML = `
-                <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-md w-full">
-                    <h2 class="text-2xl font-bold mb-6">Select a Topic for ${subject}</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        ${topicButtonsHtml}
-                    </div>
-                    <button onclick="closeModal('topic-selection-modal')" class="mt-8 text-gray-500 hover:text-gray-700">Cancel</button>
-                </div>`;
-            topicSelectionModal.classList.remove('hidden');
-        }
-
-        function showSourceSelection(topic) {
-            currentTopic = topic;
-            closeModal('topic-selection-modal');
-            const pdfButtonDisabled = !pdfText ? 'disabled' : '';
-            const pdfButtonTooltip = !pdfText ? 'title="Please upload a PDF first"' : '';
-
-            sourceSelectionModal.innerHTML = `
-                <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-sm w-full">
-                    <h2 class="text-2xl font-bold mb-6">Start ${currentTopic}</h2>
-                    <p class="text-gray-600 mb-6">How would you like to generate questions?</p>
-                    <div class="space-y-4">
-                        <button onclick="startTest(false)" class="modal-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors">
-                            <i class="fas fa-robot mr-2"></i> Generate with AI
-                        </button>
-                        <button onclick="startTest(true)" class="modal-button w-full bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors ${pdfButtonDisabled}" ${pdfButtonTooltip}>
-                            <i class="fas fa-file-pdf mr-2"></i> Generate from PDF
-                        </button>
-                    </div>
-                    <button onclick="closeModal('source-selection-modal')" class="mt-8 text-gray-500 hover:text-gray-700">Cancel</button>
-                </div>`;
-            sourceSelectionModal.classList.remove('hidden');
-        }
-
-        function startTest(fromPdf) {
-            closeModal('source-selection-modal');
-            mainView.classList.add('hidden');
-            homeworkSection.classList.remove('hidden');
-            homeworkSection.innerHTML = `
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-3xl font-bold ${currentSubject === 'Maths' ? 'text-blue-600' : 'text-green-600'}">${currentTopic}</h2>
-                    <button onclick="goBack()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors">Back</button>
-                </div>
-                <div id="loader-container" class="flex justify-center items-center h-64"><div class="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-32 w-32"></div><p id="loader-text" class="ml-4 text-lg font-semibold text-gray-600"></p></div>
-                <div id="questions-container" class="hidden"></div>
-                <div id="evaluation-container" class="hidden"></div>
-                <button id="submit-button" class="hidden mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-lg" onclick="evaluateAnswers()">Check My Answers!</button>
-                <button id="try-again-button" class="hidden mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-lg" onclick="startTest(${fromPdf})">Try New Questions</button>
-            `;
-            score = 0;
-            fetchQuestions(fromPdf);
-        }
-
-        function goBack() {
-            mainView.classList.remove('hidden');
-            homeworkSection.classList.add('hidden');
-            historyView.classList.add('hidden');
-            questionBankView.classList.add('hidden');
-            pdfText = '';
-            pdfStatusEl.textContent = 'No file selected.';
-            pdfStatusEl.className = 'mt-3 text-sm text-gray-500';
-            document.getElementById('pdf-upload').value = '';
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.add('hidden');
-        }
-
-        // --- PDF Handling ---
-        async function handleFileUpload(event) {
-            const file = event.target.files[0];
-            pdfText = '';
-            if (!file) {
-                pdfStatusEl.textContent = 'No file selected.';
-                pdfStatusEl.className = 'mt-3 text-sm text-gray-500';
-                return;
+        function flushLocalStorage() {
+            if (confirm("Are you sure you want to delete all student data? This cannot be undone.")) {
+                localStorage.removeItem('cleverifyAppStudents');
+                localStorage.removeItem('cleverifyAppHistory');
+                renderParentDashboard();
             }
-            pdfStatusEl.textContent = `Processing ${file.name}...`;
-            pdfStatusEl.className = 'mt-3 text-sm text-blue-600 font-semibold';
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const typedarray = new Uint8Array(e.target.result);
-                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                    let text = '';
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        const page = await pdf.getPage(i);
-                        const content = await page.getTextContent();
-                        text += content.items.map(item => item.str).join(' ') + '\n';
-                    }
-                    pdfText = text;
-                    pdfStatusEl.textContent = `Successfully loaded ${file.name}. Select a subject and topic, then generate questions from this file.`;
-                    pdfStatusEl.className = 'mt-3 text-sm text-green-600 font-semibold';
-                } catch (error) {
-                    console.error('Error processing PDF:', error);
-                    pdfStatusEl.textContent = 'Failed to process PDF. Please try another file.';
-                    pdfStatusEl.className = 'mt-3 text-sm text-red-600 font-semibold';
-                    pdfText = '';
-                }
+        }
+
+        function saveTestResult(evaluation, userAnswers) {
+            const allHistory = JSON.parse(localStorage.getItem('cleverifyAppHistory')) || {};
+            if (!allHistory[currentStudent.id]) {
+                allHistory[currentStudent.id] = [];
+            }
+            
+            const quizResult = {
+                date: new Date().toISOString(),
+                subject: window.currentQuizParams.subject,
+                topic: window.currentQuizParams.topic,
+                score: score,
+                total: questions.length,
+                results: questions.map((q, i) => ({
+                    question: q.question,
+                    userAnswer: userAnswers[i],
+                    correctAnswer: evaluation[i].correct_answer,
+                    explanation: evaluation[i].explanation,
+                    isCorrect: evaluation[i].is_correct
+                }))
             };
-            reader.readAsArrayBuffer(file);
+
+            allHistory[currentStudent.id].unshift(quizResult);
+            localStorage.setItem('cleverifyAppHistory', JSON.stringify(allHistory));
+            handleCompletion(quizResult);
         }
 
-        // --- Question & Evaluation Logic ---
-        async function fetchQuestions(fromPdf) {
-            const loaderContainer = document.getElementById('loader-container');
-            const loaderText = document.getElementById('loader-text');
-            loaderContainer.classList.remove('hidden');
-            loaderText.textContent = 'Generating questions...';
+        // --- Parent & Student Profile Management ---
+        function renderParentDashboard() {
+            const students = getStudents();
+            const studentListEl = document.getElementById('student-list');
+            const addStudentForm = document.getElementById('add-student-form');
+            const studentLimitMsg = document.getElementById('student-limit-msg');
             
-            let prompt;
-            let difficultyModifier = '';
-            const topicStats = questionBank[currentSubject][currentTopic];
-            if (topicStats) {
-                if (topicStats.correct > topicStats.incorrect * 2) {
-                    difficultyModifier = ' Make the questions slightly harder than standard Primary 3 level.';
-                } else if (topicStats.incorrect > topicStats.correct * 2) {
-                    difficultyModifier = ' Make the questions slightly easier and more foundational than standard Primary 3 level.';
+            studentListEl.innerHTML = '';
+            if (students.length === 0) {
+                studentListEl.innerHTML = '<p class="text-slate-500 col-span-full text-center">No student profiles found. Please add one below.</p>';
+            } else {
+                students.forEach((student, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'student-card bg-slate-100 p-6 rounded-lg cursor-pointer flex flex-col items-center text-center card-animated';
+                    card.style.animationDelay = `${index * 100}ms`;
+                    card.innerHTML = `<div class="w-16 h-16 rounded-full bg-blue-200 flex items-center justify-center text-2xl font-bold text-blue-700 mb-3">${student.name.charAt(0)}</div><h3 class="text-xl font-bold text-slate-800">${student.name}</h3><p class="text-slate-500">${student.level}</p>`;
+                    card.onclick = () => selectStudent(student);
+                    studentListEl.appendChild(card);
+                });
+            }
+
+            if (students.length >= 2) {
+                addStudentForm.classList.add('hidden');
+                studentLimitMsg.classList.remove('hidden');
+            } else {
+                addStudentForm.classList.remove('hidden');
+                studentLimitMsg.classList.add('hidden');
+            }
+
+            renderDailyPerformanceChart(null);
+            changeView('parent-dashboard-view');
+        }
+
+        function addStudent() {
+            const nameInput = document.getElementById('student-name-input');
+            const levelSelect = document.getElementById('student-level-select');
+            const studentName = nameInput.value.trim();
+            if (studentName) {
+                const students = getStudents();
+                if (students.length < 2) {
+                    students.push({
+                        id: `student${Date.now()}`,
+                        name: studentName,
+                        level: levelSelect.value,
+                        gamification: { streak: 0, lastCompletedDate: null, badges: [] }
+                    });
+                    saveStudents(students);
+                    nameInput.value = '';
+                    renderParentDashboard();
                 }
             }
+        }
 
-            if (fromPdf && pdfText) {
-                prompt = `Act as a Primary 3 teacher in Singapore. Use the following text extracted from a PDF as a reference for style, difficulty, and format: --- PDF SAMPLE START --- ${pdfText} --- PDF SAMPLE END --- Based on these samples, create 5 new and different questions for the topic "${currentTopic}". Ensure the new questions align with the Singapore Primary 3 syllabus.${difficultyModifier}`;
-            } else {
-                prompt = `Act as a Primary 3 teacher in Singapore. Create 5 daily homework questions based on the Singapore Primary 3 syllabus for the specific topic of "${currentTopic}". The questions should be suitable for a Primary 3 student.${difficultyModifier}`;
-            }
+        function selectStudent(student) {
+            currentStudent = student;
+            loadStudentData(student.id);
+            renderStudentWorkspace();
+            renderDailyPerformanceChart(student.id);
+            changeView('student-workspace-view');
+        }
+
+        // --- Data Caching & Processing ---
+        function loadStudentData(studentId) {
+            const students = getStudents();
+            const profile = students.find(s => s.id === studentId);
+            const history = getHistory(studentId);
             
-            const schema = { type: "OBJECT", properties: { questions: { type: "ARRAY", items: { type: "OBJECT", properties: { question: { type: "STRING" } }, required: ["question"] } } } };
+            const oneWeekAgo = new Date();
+            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            const recentHistory = history.filter(h => new Date(h.date) >= oneWeekAgo);
 
+            const weeklyStats = { Maths: { correct: 0, total: 0 }, Science: { correct: 0, total: 0 } };
+            recentHistory.forEach(quiz => {
+                if (weeklyStats[quiz.subject]) {
+                    weeklyStats[quiz.subject].correct += quiz.score;
+                    weeklyStats[quiz.subject].total += quiz.total;
+                }
+            });
+
+            studentCache = { profile, fullHistory: history, weeklyStats };
+        }
+
+        // --- Student Workspace Rendering ---
+        function renderStudentWorkspace() {
+            document.getElementById('student-header').innerHTML = `<span>${studentCache.profile.name}</span><span class="ml-2 text-sm font-medium bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md">${studentCache.profile.level}</span>`;
+            updateGamificationDisplay();
+            showStudentSubView('dashboard');
+        }
+
+        function showStudentSubView(subView) {
+            document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+            document.getElementById(`nav-${subView.split('-')[0]}`).classList.add('active');
+            
+            const contentArea = document.getElementById('student-main-content');
+            if (subView === 'dashboard') {
+                renderStudentDashboard(contentArea);
+            } else if (subView === 'quiz-setup') {
+                renderQuizSetup(contentArea);
+            } else if (subView === 'history') {
+                renderHistoryView(contentArea);
+            } else if (subView === 'bank') {
+                renderQuestionBankView(contentArea);
+            } else if (subView === 'quiz') {
+                renderQuizInterface(contentArea, window.currentQuizParams);
+            }
+        }
+
+        function renderStudentDashboard(container) {
+            loadStudentData(currentStudent.id);
+            const stats = studentCache.weeklyStats;
+            const mathsAccuracy = stats.Maths.total > 0 ? (stats.Maths.correct / stats.Maths.total * 100).toFixed(0) : 0;
+            const scienceAccuracy = stats.Science.total > 0 ? (stats.Science.correct / stats.Science.total * 100).toFixed(0) : 0;
+            
+            container.innerHTML = `
+                <div class="space-y-10">
+                    <div class="bg-gradient-to-br from-indigo-50 to-purple-100 p-8 rounded-xl shadow-lg text-center border border-slate-200 card-animated">
+                        <h2 class="text-3xl font-bold text-slate-900">Ready for your Daily Dose?</h2>
+                        <p class="text-slate-600 mt-2">Let's practice some ${masterConfig[currentStudent.level].Maths[0]} questions.</p>
+                        <button class="btn-interactive mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-lg text-xl" onclick="showStudentSubView('quiz-setup')">Start Now</button>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-bold text-slate-900 mb-4">This Week's Performance</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 card-animated" style="animation-delay: 100ms;">
+                                <h3 class="font-bold text-lg text-blue-600">Maths</h3>
+                                <p class="text-4xl font-extrabold text-slate-900 mt-2">${mathsAccuracy}%</p>
+                                <div class="w-full bg-slate-200 rounded-full h-2.5 mt-3">
+                                    <div class="bg-blue-600 h-2.5 rounded-full progress-bar-fill" style="width: ${mathsAccuracy}%"></div>
+                                </div>
+                                <p class="text-sm text-slate-500 mt-2">${stats.Maths.total} questions answered</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 card-animated" style="animation-delay: 200ms;">
+                                <h3 class="font-bold text-lg text-green-600">Science</h3>
+                                <p class="text-4xl font-extrabold text-slate-900 mt-2">${scienceAccuracy}%</p>
+                                <div class="w-full bg-slate-200 rounded-full h-2.5 mt-3">
+                                    <div class="bg-green-500 h-2.5 rounded-full progress-bar-fill" style="width: ${scienceAccuracy}%"></div>
+                                </div>
+                                <p class="text-sm text-slate-500 mt-2">${stats.Science.total} questions answered</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderQuizSetup(container) {
+            container.innerHTML = `<div id="quiz-setup-container" class="space-y-8"></div>`;
+            renderSubjectSelection();
+        }
+
+        function renderSubjectSelection() {
+            const container = document.getElementById('quiz-setup-container');
+            const subjects = Object.keys(masterConfig[currentStudent.level]);
+            container.innerHTML = `
+                <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 card-animated">
+                    <h2 class="text-2xl font-bold text-slate-900">Step 1: Choose a Subject</h2>
+                    <div class="grid grid-cols-2 gap-4 mt-6">
+                        ${subjects.map(s => `<button class="selection-card p-6 bg-slate-50 rounded-lg border-2 border-transparent text-center relative" onclick="selectSubject(this, '${s}')">${s}<span class="check-icon hidden absolute top-2 right-2 text-indigo-600"><i class="fas fa-check-circle"></i></span></button>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function selectSubject(element, subject) {
+            element.querySelector('.check-icon').classList.remove('hidden');
+            document.querySelectorAll('#quiz-setup-container .selection-card').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            setTimeout(() => {
+                window.currentQuizParams = { subject };
+                renderTopicSelection();
+            }, 300);
+        }
+
+        function renderTopicSelection() {
+            const container = document.getElementById('quiz-setup-container');
+            const topics = masterConfig[currentStudent.level][window.currentQuizParams.subject];
+            container.innerHTML = `
+                <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 card-animated">
+                    <h2 class="text-2xl font-bold text-slate-900">Step 2: Choose a Topic for ${window.currentQuizParams.subject}</h2>
+                    <div class="grid grid-cols-2 gap-4 mt-6">
+                         ${topics.map(t => `<button class="selection-card p-6 bg-slate-50 rounded-lg border-2 border-transparent text-center relative" onclick="selectTopic(this, '${t}')">${t}<span class="check-icon hidden absolute top-2 right-2 text-indigo-600"><i class="fas fa-check-circle"></i></span></button>`).join('')}
+                    </div>
+                    <button onclick="renderSubjectSelection()" class="mt-6 text-sm text-slate-500 hover:underline">&larr; Back to Subjects</button>
+                </div>
+            `;
+        }
+
+        function selectTopic(element, topic) {
+            element.querySelector('.check-icon').classList.remove('hidden');
+            document.querySelectorAll('#quiz-setup-container .selection-card').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            setTimeout(() => {
+                window.currentQuizParams.topic = topic;
+                renderDifficultySelection();
+            }, 300);
+        }
+
+        function renderDifficultySelection() {
+            const container = document.getElementById('quiz-setup-container');
+            container.innerHTML = `
+                <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 card-animated">
+                    <h2 class="text-2xl font-bold text-slate-900">Step 3: Choose Difficulty for ${window.currentQuizParams.topic}</h2>
+                    <div class="grid grid-cols-3 gap-4 mt-6">
+                        <button class="selection-card p-6 bg-slate-50 rounded-lg border-2 border-transparent text-center relative" onclick="selectDifficulty(this, 'Easy')">Easy<span class="check-icon hidden absolute top-2 right-2 text-indigo-600"><i class="fas fa-check-circle"></i></span></button>
+                        <button class="selection-card p-6 bg-slate-50 rounded-lg border-2 border-transparent text-center relative" onclick="selectDifficulty(this, 'Medium')">Medium<span class="check-icon hidden absolute top-2 right-2 text-indigo-600"><i class="fas fa-check-circle"></i></span></button>
+                        <button class="selection-card p-6 bg-slate-50 rounded-lg border-2 border-transparent text-center relative" onclick="selectDifficulty(this, 'Hard')">Hard<span class="check-icon hidden absolute top-2 right-2 text-indigo-600"><i class="fas fa-check-circle"></i></span></button>
+                    </div>
+                    <button onclick="renderTopicSelection()" class="mt-6 text-sm text-slate-500 hover:underline">&larr; Back to Topics</button>
+                </div>
+            `;
+        }
+        
+        function selectDifficulty(element, difficulty) {
+            element.querySelector('.check-icon').classList.remove('hidden');
+            document.querySelectorAll('#quiz-setup-container .selection-card').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            setTimeout(() => {
+                window.currentQuizParams.difficulty = difficulty;
+                window.currentQuizParams.classLevel = currentStudent.level;
+                showStudentSubView('quiz');
+            }, 300);
+        }
+
+        function renderQuizInterface(container, params) {
+            container.innerHTML = `
+                <div id="loader-container" class="flex justify-center items-center h-64">
+                    <div class="loader ease-linear rounded-full border-8 border-t-8 border-slate-200 h-32 w-32"></div>
+                    <p id="loader-text" class="ml-4 text-lg font-semibold text-slate-600">Generating questions...</p>
+                </div>
+                <div id="questions-container" class="hidden space-y-6"></div>
+                <div id="evaluation-container" class="hidden space-y-6"></div>
+                <div id="quiz-actions" class="mt-8">
+                    <button id="submit-button" class="hidden btn-interactive w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-lg" onclick="evaluateAnswers()">Check My Answers!</button>
+                    <button id="restart-button" class="hidden btn-interactive w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-lg" onclick="showStudentSubView('quiz-setup')">Take Another Quiz</button>
+                </div>
+            `;
+            fetchQuestions(params);
+        }
+
+        async function fetchQuestions(params) {
+            document.getElementById('loader-container').classList.remove('hidden');
             try {
-                const response = await callGeminiAPI('/api/generate', prompt, { responseMimeType: "application/json", responseSchema: schema });
+                const history = getHistory(currentStudent.id);
+                const previousQuestions = history
+                    .filter(test => test.topic === params.topic)
+                    .flatMap(test => test.results.map(r => r.question));
+                
+                params.previous_questions = [...new Set(previousQuestions)];
+
+                const response = await callBackendAPI('/api/generate', params);
                 questions = response.questions;
                 displayQuestions();
             } catch (error) {
                 console.error("Error fetching questions:", error);
-                document.getElementById('questions-container').innerHTML = `<p class="text-red-500 text-center">Sorry, something went wrong fetching questions. Please try again.</p>`;
-            } finally {
-                loaderContainer.classList.add('hidden');
-                document.getElementById('questions-container').classList.remove('hidden');
-                document.getElementById('submit-button').classList.remove('hidden');
+                document.getElementById('loader-container').innerHTML = `<p class="text-red-500 text-center">Sorry, something went wrong fetching questions. Please try again.</p>`;
             }
         }
+        
+        // Other functions (displayQuestions, evaluateAnswers, etc.) are restored below...
 
         function displayQuestions() {
+            document.getElementById('loader-container').classList.add('hidden');
             const container = document.getElementById('questions-container');
+            container.classList.remove('hidden');
             container.innerHTML = '';
             questions.forEach((q, index) => {
                 const qElement = document.createElement('div');
-                qElement.className = 'mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200';
+                qElement.className = 'p-6 bg-white rounded-lg border border-slate-200';
+                let answerHtml = '';
+                switch (q.type) {
+                    case 'single-choice':
+                        answerHtml = `<div class="space-y-3 mt-4">${q.options.map((opt, i) => `
+                            <label class="flex items-center p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                                <input type="radio" name="q${index}" value="${opt}" class="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-500">
+                                <span class="ml-3 text-slate-700">${opt}</span>
+                            </label>`).join('')}</div>`;
+                        break;
+                    case 'multi-select':
+                        answerHtml = `<div class="space-y-3 mt-4">${q.options.map((opt, i) => `
+                            <label class="flex items-center p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                                <input type="checkbox" name="q${index}" value="${opt}" class="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+                                <span class="ml-3 text-slate-700">${opt}</span>
+                            </label>`).join('')}</div>`;
+                        break;
+                    case 'free-text':
+                        answerHtml = `
+                            <div class="editor-toolbar mt-4 flex items-center space-x-2 p-2 bg-slate-100 rounded-t-lg border-b-0 border border-slate-300">
+                                <button onclick="formatDoc('bold', ${index})" class="font-bold hover:bg-slate-200 rounded">B</button>
+                                <div class="w-px h-5 bg-slate-300"></div>
+                                <div class="flex items-center space-x-1">
+                                    <div class="color-swatch bg-black" onclick="formatDoc('foreColor', ${index}, '#000000')"></div>
+                                    <div class="color-swatch" style="background-color: #EF4444" onclick="formatDoc('foreColor', ${index}, '#EF4444')"></div>
+                                    <div class="color-swatch" style="background-color: #3B82F6" onclick="formatDoc('foreColor', ${index}, '#3B82F6')"></div>
+                                    <div class="color-swatch" style="background-color: #10B981" onclick="formatDoc('foreColor', ${index}, '#10B981')"></div>
+                                </div>
+                            </div>
+                            <div id="answer-${index}" class="rich-text-editor bg-white" contenteditable="true"></div>`;
+                        break;
+                }
                 qElement.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <p class="font-semibold text-lg mb-2 flex-grow">${index + 1}. ${q.question}</p>
+                        <p class="font-semibold text-lg text-slate-800 mb-2 flex-grow">${index + 1}. ${q.question}</p>
                         <button id="hint-btn-${index}" onclick="getHint(${index})" class="hint-button text-white font-bold py-1 px-3 rounded-lg text-sm ml-4 flex-shrink-0">
                             <i class="fas fa-lightbulb"></i> Hint
                         </button>
                     </div>
+                    ${answerHtml}
                     <div id="hint-text-${index}" class="hidden mt-2 p-2 hint-text rounded"></div>
-                    <input type="text" id="answer-${index}" class="answer-input w-full p-2 border border-gray-300 rounded-md shadow-sm mt-2" placeholder="Your answer here...">
                 `;
                 container.appendChild(qElement);
             });
+            document.getElementById('submit-button').classList.remove('hidden');
         }
 
+        function formatDoc(command, index, value = null) {
+            document.execCommand(command, false, value);
+            document.getElementById(`answer-${index}`).focus();
+        }
+        
         async function getHint(index) {
             const hintBtn = document.getElementById(`hint-btn-${index}`);
             const hintTextEl = document.getElementById(`hint-text-${index}`);
@@ -377,11 +588,10 @@
             hintBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             const questionText = questions[index].question;
-            const prompt = `Provide a simple one-sentence hint for a Primary 3 student for the following question, but do not give away the answer: "${questionText}"`;
-
+            
             try {
-                const response = await callGeminiAPI('/api/get-hint', prompt);
-                hintTextEl.textContent = `Hint: ${response}`;
+                const response = await callBackendAPI('/api/get-hint', { question: questionText });
+                hintTextEl.textContent = `Hint: ${response.text}`;
                 hintTextEl.classList.remove('hidden');
                 hintBtn.classList.add('hidden');
             } catch (error) {
@@ -395,198 +605,284 @@
 
         async function evaluateAnswers() {
             const loaderContainer = document.getElementById('loader-container');
-            const loaderText = document.getElementById('loader-text');
             loaderContainer.classList.remove('hidden');
-            loaderText.textContent = 'Evaluating answers...';
+            loaderContainer.querySelector('#loader-text').textContent = 'Evaluating answers...';
             document.getElementById('questions-container').classList.add('hidden');
             document.getElementById('submit-button').classList.add('hidden');
             
-            const evaluationPrompt = `I am a Primary 3 student in Singapore. Please evaluate my answers for my ${currentSubject} homework on the topic "${currentTopic}". For each question, tell me if I am correct, provide the correct answer, and a simple, encouraging, one-sentence explanation. Questions and Answers: ${questions.map((q, i) => `Question ${i+1}: ${q.question}\nMy Answer ${i+1}: ${document.getElementById('answer-' + i).value}`).join('\n\n')}`;
+            const userAnswers = questions.map((q, i) => {
+                switch (q.type) {
+                    case 'single-choice':
+                        const checkedRadio = document.querySelector(`input[name="q${i}"]:checked`);
+                        return checkedRadio ? checkedRadio.value : "";
+                    case 'multi-select':
+                        const checkedBoxes = document.querySelectorAll(`input[name="q${i}"]:checked`);
+                        return Array.from(checkedBoxes).map(cb => cb.value);
+                    case 'free-text':
+                        return document.getElementById(`answer-${i}`).innerHTML;
+                    default:
+                        return "";
+                }
+            });
             
             try {
-                const schema = { type: "OBJECT", properties: { evaluation: { type: "ARRAY", items: { type: "OBJECT", properties: { is_correct: { type: "BOOLEAN" }, correct_answer: { type: "STRING" }, explanation: { type: "STRING" } }, required: ["is_correct", "correct_answer", "explanation"] } } } };
-                const response = await callGeminiAPI('/api/generate', evaluationPrompt, { responseMimeType: "application/json", responseSchema: schema });
+                const response = await callBackendAPI('/api/evaluate', { questions, answers: userAnswers });
+                score = response.evaluation.filter(e => e.is_correct).length;
+                saveTestResult(response.evaluation, userAnswers);
+                displayEvaluation(response.evaluation, userAnswers);
+            } catch (error) {
+                console.error("Error evaluating answers:", error);
+                loaderContainer.innerHTML = `<p class="text-red-500 text-center">Sorry, something went wrong during evaluation. Please try again.</p>`;
+            }
+        }
 
-                const fullEvaluation = response.evaluation.map((item, index) => {
-                    if (item.is_correct) score++;
-                    return { ...item, question: questions[index].question, user_answer: document.getElementById('answer-' + index).value || "No answer given" };
-                });
-                
-                if (!questionBank[currentSubject][currentTopic]) {
-                    questionBank[currentSubject][currentTopic] = { questions: [], correct: 0, incorrect: 0 };
+        function displayEvaluation(evaluation, userAnswers) {
+            document.getElementById('loader-container').classList.add('hidden');
+            const container = document.getElementById('evaluation-container');
+            container.classList.remove('hidden');
+            
+            let stickersHtml = '';
+            for(let i = 0; i < score; i++) {
+                stickersHtml += `<span class="text-4xl">${stickers[i % stickers.length]}</span>`;
+            }
+
+            container.innerHTML = `
+                <div class="text-center bg-white p-8 rounded-lg shadow-lg">
+                    <h3 class="text-3xl font-bold mb-4">Quiz Complete!</h3>
+                    <p class="text-xl text-slate-600">You scored ${score} out of ${questions.length}.</p>
+                    <div class="mt-4 flex justify-center gap-2">${stickersHtml || '<p class="text-slate-500">No stickers earned this time. Keep trying!</p>'}</div>
+                </div>
+            `;
+            
+            evaluation.forEach((result, index) => {
+                const resultElement = document.createElement('div');
+                resultElement.className = `p-4 rounded-lg border ${result.is_correct ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`;
+                let userAnswerHtml = '';
+                if (questions[index].type === 'free-text') {
+                    userAnswerHtml = userAnswers[index];
+                } else if (Array.isArray(userAnswers[index])) {
+                    userAnswerHtml = userAnswers[index].join(', ') || "No answer given";
+                } else {
+                    userAnswerHtml = userAnswers[index] || "No answer given";
                 }
 
-                fullEvaluation.forEach(result => {
-                    if (result.is_correct) {
-                        questionBank[currentSubject][currentTopic].correct++;
-                    } else {
-                        questionBank[currentSubject][currentTopic].incorrect++;
-                    }
+                resultElement.innerHTML = `
+                    <p class="font-semibold text-lg">${index + 1}. ${questions[index].question}</p>
+                    <div class="mt-2 p-2 border-l-4 border-slate-200">Your answer: <span class="font-medium">${userAnswerHtml}</span></div>
+                    <div class="mt-2 p-3 rounded-md ${result.is_correct ? 'bg-green-100' : 'bg-red-100'}">
+                        <p class="font-bold ${result.is_correct ? 'text-green-700' : 'text-red-700'}">
+                            ${result.is_correct ? `<i class="fas fa-check-circle mr-2"></i>Correct! <span class="text-2xl ml-2">${stickers[index % stickers.length]}</span>` : '<i class="fas fa-times-circle mr-2"></i>Not quite!'}
+                        </p>
+                        <p class="mt-1">Correct Answer: <span class="font-semibold">${result.correct_answer}</span></p>
+                        <p class="mt-1 text-slate-700"><em>${result.explanation}</em></p>
+                    </div>`;
+                container.appendChild(resultElement);
+            });
+            document.getElementById('restart-button').classList.remove('hidden');
+        }
 
-                    const questionInBank = questionBank[currentSubject][currentTopic].questions.find(q => q.question === result.question);
-                    if (!questionInBank) {
-                        questionBank[currentSubject][currentTopic].questions.push({
-                            question: result.question,
-                            correct_answer: result.correct_answer,
+        function renderHistoryView(container) {
+            const history = studentCache.fullHistory;
+            if (history.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500 text-lg bg-white p-8 rounded-lg shadow-md">No homework has been completed yet.</p>';
+                return;
+            }
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Quiz History</h2>
+                <div class="space-y-4">
+                ${history.map((test, index) => `
+                    <div class="bg-white rounded-lg shadow-md">
+                        <button class="w-full text-left p-4" onclick="toggleHistoryDetails('history-details-${index}')">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">${test.subject}: ${test.topic}</h3>
+                                    <p class="text-sm text-slate-500">${new Date(test.date).toLocaleDateString()}</p>
+                                </div>
+                                <p class="text-xl font-bold">${test.score}/${test.total}</p>
+                            </div>
+                        </button>
+                        <div id="history-details-${index}" class="history-details space-y-4 border-t border-slate-200">
+                            ${test.results.map((r, i) => `
+                                <div class="p-3 rounded-md ${r.isCorrect ? 'bg-green-50' : 'bg-red-50'}">
+                                    <p class="font-semibold">${i + 1}. ${r.question}</p>
+                                    <p class="text-sm mt-1">Your answer: ${r.userAnswer}</p>
+                                    <p class="text-sm mt-1">Correct answer: ${r.correctAnswer}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+                </div>
+            `;
+        }
+        
+        function renderQuestionBankView(container) {
+            const allHistory = getHistory(currentStudent.id);
+            const questionMap = new Map();
+            allHistory.forEach(test => {
+                test.results.forEach(result => {
+                    if (!questionMap.has(result.question)) {
+                        questionMap.set(result.question, {
+                            topic: test.topic,
+                            correctAnswer: result.correctAnswer,
                             explanation: result.explanation
                         });
                     }
                 });
+            });
 
-                displayEvaluation(fullEvaluation);
-                saveTestResult(fullEvaluation);
-                handleCompletion(fullEvaluation);
+            const uniqueQuestions = Array.from(questionMap.entries());
 
-            } catch (error) {
-                console.error("Error evaluating answers:", error);
-                document.getElementById('evaluation-container').innerHTML = `<p class="text-red-500 text-center">Sorry, something went wrong during evaluation. Please try again.</p>`;
-            } finally {
-                loaderContainer.classList.add('hidden');
-                document.getElementById('evaluation-container').classList.remove('hidden');
-                document.getElementById('try-again-button').classList.remove('hidden');
+            if (uniqueQuestions.length === 0) {
+                 container.innerHTML = '<p class="text-center text-gray-500 text-lg bg-white p-8 rounded-lg shadow-md">No questions in the bank yet. Complete a quiz to add questions.</p>';
+                return;
             }
+
+            container.innerHTML = `
+                 <h2 class="text-2xl font-bold text-slate-800 mb-6">Question Bank</h2>
+                 <div class="space-y-4">
+                    ${uniqueQuestions.map(([question, data], index) => `
+                        <div class="bg-white rounded-lg shadow-md">
+                            <button class="w-full text-left p-4" onclick="toggleHistoryDetails('bank-details-${index}')">
+                                <p class="font-semibold">${index + 1}. ${question}</p>
+                                <p class="text-sm text-slate-500 mt-1">Topic: ${data.topic}</p>
+                            </button>
+                            <div id="bank-details-${index}" class="history-details border-t border-slate-200">
+                                <div class="p-3 rounded-md bg-blue-50">
+                                    <p><strong>Answer:</strong> ${data.correctAnswer}</p>
+                                    <p class="text-sm mt-1"><em>${data.explanation}</em></p>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                 </div>
+            `;
         }
 
-        function displayEvaluation(evaluation) {
-            const container = document.getElementById('evaluation-container');
-            container.innerHTML = `<h3 class="text-2xl font-bold mb-4 text-center">Here are your results! You scored ${score} out of ${questions.length}.</h3>`;
-            evaluation.forEach((result, index) => {
-                const resultElement = document.createElement('div');
-                resultElement.className = `mb-4 p-4 rounded-lg border ${result.is_correct ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`;
-                resultElement.innerHTML = `<p class="font-semibold text-lg">${index + 1}. ${result.question}</p><p class="mt-2">Your answer: <span class="font-medium">${result.user_answer}</span></p><div class="mt-2 p-3 rounded-md ${result.is_correct ? 'bg-green-100' : 'bg-red-100'}"><p class="font-bold ${result.is_correct ? 'text-green-700' : 'text-red-700'}">${result.is_correct ? '<i class="fas fa-check-circle mr-2"></i>Correct!' : '<i class="fas fa-times-circle mr-2"></i>Not quite!'} (+${result.is_correct ? 1 : 0} point)</p><p class="mt-1">Correct Answer: <span class="font-semibold">${result.correct_answer}</span></p><p class="mt-1 text-gray-700"><em>${result.explanation}</em></p></div>`;
-                container.appendChild(resultElement);
-            });
+        function toggleHistoryDetails(elementId) {
+            document.getElementById(elementId).classList.toggle('open');
         }
         
-        // --- History, Bank & Gamification ---
-        function saveTestResult(evaluation) {
-            const result = { date: new Date().toISOString(), subject: currentSubject, topic: currentTopic, score: score, total: questions.length, results: evaluation };
-            homeworkHistory.unshift(result);
-            if (homeworkHistory.length > 20) homeworkHistory.pop();
-            saveData();
-        }
+        // --- Gamification ---
+        function handleCompletion(quizResult) {
+            const students = getStudents();
+            const student = students.find(s => s.id === currentStudent.id);
+            if (!student) return;
 
-        function showHistory() {
-            mainView.classList.add('hidden');
-            historyView.classList.remove('hidden');
-            historyView.innerHTML = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-purple-600">My History</h2><button onclick="goBack()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg">Back</button></div><div id="history-content"></div>`;
-            const contentEl = document.getElementById('history-content');
-            if (homeworkHistory.length === 0) { contentEl.innerHTML = '<p class="text-center text-gray-500">You haven\'t completed any homework yet.</p>'; return; }
-            homeworkHistory.forEach(test => {
-                const testEl = document.createElement('div');
-                testEl.className = 'mb-6 p-4 border border-gray-200 rounded-lg';
-                const testDate = new Date(test.date);
-                testEl.innerHTML = `<div class="flex justify-between items-center"><div><h3 class="text-xl font-bold ${test.subject === 'Maths' ? 'text-blue-600' : 'text-green-600'}">${test.subject}: ${test.topic}</h3><p class="text-sm text-gray-500">${testDate.toLocaleDateString('en-SG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p></div><div class="text-2xl font-bold text-gray-700">${test.score}/${test.total}</div></div><div class="mt-4">${test.results.map((r, i) => `<div class="mt-4 p-3 rounded-md ${r.is_correct ? 'bg-green-50' : 'bg-red-50'}"><p class="font-semibold">${i+1}. ${r.question}</p><p class="text-sm mt-1">Your answer: ${r.user_answer}</p><p class="text-sm mt-1">Correct answer: ${r.correct_answer}</p></div>`).join('')}</div>`;
-                contentEl.appendChild(testEl);
-            });
-        }
+            const today = new Date().toISOString().split('T')[0];
+            const yesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0];
 
-        function toggleAnswer(elementId) {
-            const element = document.getElementById(elementId);
-            const button = element.previousElementSibling.querySelector('button');
-            if (element.classList.toggle('hidden')) {
-                button.innerHTML = 'Show Answer';
-            } else {
-                button.innerHTML = 'Hide Answer';
+            if (student.gamification.lastCompletedDate === yesterday) {
+                student.gamification.streak++;
+            } else if (student.gamification.lastCompletedDate !== today) {
+                student.gamification.streak = 1;
             }
-        }
+            student.gamification.lastCompletedDate = today;
 
-        function showQuestionBank() {
-            mainView.classList.add('hidden');
-            questionBankView.classList.remove('hidden');
-            let content = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-teal-600">Question Bank</h2><button onclick="goBack()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg">Back</button></div>`;
-            content += '<div>';
-            for (const subject in questionBank) {
-                content += `<div class="mb-8"><h3 class="text-2xl font-bold mb-4 ${subject === 'Maths' ? 'text-blue-600' : 'text-green-600'}">${subject}</h3>`;
-                const subjectTopics = Object.keys(questionBank[subject]);
-                if (subjectTopics.length > 0) {
-                    subjectTopics.forEach(topic => {
-                        const topicData = questionBank[subject][topic];
-                        const questionsForTopic = topicData.questions;
-                        content += `<div class="ml-4 mb-4"><h4 class="text-xl font-semibold mb-2">${topic} (${questionsForTopic.length} questions)</h4>`;
-                        if (questionsForTopic.length > 0) {
-                             content += '<ul class="space-y-2">';
-                            questionsForTopic.forEach((q, index) => {
-                                const answerId = `answer-${subject}-${topic.replace(/\s+/g, '-')}-${index}`;
-                                content += `<li class="p-3 bg-gray-50 rounded-lg">
-                                    <div class="flex justify-between items-center">
-                                        <p class="flex-1 pr-4">${index + 1}. ${q.question}</p>
-                                        <button onclick="toggleAnswer('${answerId}')" class="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-lg text-sm flex-shrink-0">Show Answer</button>
-                                    </div>
-                                    <div id="${answerId}" class="hidden mt-3 pt-3 border-t border-gray-200">
-                                        <p><strong>Answer:</strong> ${q.correct_answer || 'Not yet evaluated'}</p>
-                                        <p class="text-sm text-gray-600 mt-1"><em><strong>Explanation:</strong> ${q.explanation || 'Answer a quiz with this question to see the explanation.'}</em></p>
-                                    </div></li>`;
-                            });
-                            content += '</ul>';
-                        }
-                        content += `</div>`;
-                    });
-                } else { content += '<p class="text-gray-500">No questions generated for this subject yet.</p>'; }
-                content += '</div>';
+            if (student.gamification.streak >= 3 && !student.gamification.badges.includes('3-Day Streak')) {
+                student.gamification.badges.push('3-Day Streak');
             }
-            content += '</div>';
-            questionBankView.innerHTML = content;
-        }
-
-        function updateStreak() {
-            if (!gamificationData.lastCompleted) { gamificationData.streak = 0; return; }
-            const today = new Date().setHours(0, 0, 0, 0);
-            const lastDay = new Date(gamificationData.lastCompleted).setHours(0, 0, 0, 0);
-            const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-            if (lastDay === today) {} else if (lastDay < yesterday) { gamificationData.streak = 0; }
-        }
-        
-        function handleCompletion(evaluation) {
-            const today = new Date().setHours(0, 0, 0, 0);
-            const lastDay = gamificationData.lastCompleted ? new Date(gamificationData.lastCompleted).setHours(0, 0, 0, 0) : null;
-            if (lastDay !== today) { updateStreak(); gamificationData.streak++; gamificationData.lastCompleted = new Date().toISOString(); }
-            if (gamificationData.streak === 3 && !gamificationData.badges.includes('3-Day Streak')) { gamificationData.badges.push('3-Day Streak'); }
-            if (gamificationData.streak === 7 && !gamificationData.badges.includes('7-Day Streak')) { gamificationData.badges.push('7-Day Streak'); }
-            if (evaluation.every(e => e.is_correct) && !gamificationData.badges.includes('Perfect Score!')) { gamificationData.badges.push('Perfect Score!'); }
-            if (homeworkHistory.length >= 10 && !gamificationData.badges.includes('Homework Hero')) { gamificationData.badges.push('Homework Hero'); }
-            saveData();
+            if (quizResult.score === quizResult.total && !student.gamification.badges.includes('Perfect Score!')) {
+                student.gamification.badges.push('Perfect Score!');
+            }
+            const history = getHistory(student.id);
+            if (history.length >= 10 && !student.gamification.badges.includes('Homework Hero')) {
+                student.gamification.badges.push('Homework Hero');
+            }
+            
+            saveStudents(students);
+            loadStudentData(student.id);
             updateGamificationDisplay();
-            if (evaluation.every(e => e.is_correct)) { setTimeout(() => wellDoneModal.classList.remove('hidden'), 500); }
         }
 
         function updateGamificationDisplay() {
-            streakCountEl.textContent = gamificationData.streak;
-            badgeCountEl.textContent = gamificationData.badges.length;
-            badgeDisplayEl.innerHTML = '';
-            const badgeIcons = { '3-Day Streak': { icon: 'fa-star', color: 'text-yellow-600' }, '7-Day Streak': { icon: 'fa-trophy', color: 'text-gray-400' }, 'Perfect Score!': { icon: 'fa-gem', color: 'text-yellow-400' }, 'Homework Hero': { icon: 'fa-shield-alt', color: 'text-blue-500' } };
-            gamificationData.badges.forEach(name => {
-                const info = badgeIcons[name] || { icon: 'fa-medal', color: 'text-gray-400' };
-                const el = document.createElement('div');
-                el.className = 'badge flex flex-col items-center p-2 bg-white rounded-lg shadow-sm';
-                el.innerHTML = `<i class="fas ${info.icon} fa-2x ${info.color}"></i><span class="text-xs font-semibold mt-1 text-center">${name}</span>`;
-                badgeDisplayEl.appendChild(el);
+            const gamification = studentCache.profile?.gamification;
+            if (gamification) {
+                document.getElementById('student-streak').innerText = gamification.streak || 0;
+                document.getElementById('student-badges').innerText = gamification.badges?.length || 0;
+            }
+        }
+        
+        // --- Parent Dashboard Chart ---
+        function renderDailyPerformanceChart(studentId) {
+            const container = document.getElementById('parent-chart-container');
+            if (dailyPerformanceChart) {
+                dailyPerformanceChart.destroy();
+            }
+            if (!studentId) {
+                container.innerHTML = '<p class="text-center text-slate-500 h-full flex items-center justify-center">Select a student to view their daily performance.</p>';
+                return;
+            }
+            container.innerHTML = '<canvas id="daily-performance-chart"></canvas>';
+            const ctx = document.getElementById('daily-performance-chart').getContext('2d');
+
+            const history = getHistory(studentId);
+            const labels = [];
+            const dataByDay = {};
+
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dayString = d.toISOString().split('T')[0];
+                labels.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
+                dataByDay[dayString] = { Maths: { scores: [], count: 0 }, Science: { scores: [], count: 0 }};
+            }
+
+            history.forEach(test => {
+                const dayString = new Date(test.date).toISOString().split('T')[0];
+                if (dataByDay[dayString] && dataByDay[dayString][test.subject]) {
+                    dataByDay[dayString][test.subject].scores.push((test.score / test.total) * 100);
+                    dataByDay[dayString][test.subject].count++;
+                }
+            });
+
+            const mathsData = labels.map((_, i) => {
+                const d = new Date();
+                d.setDate(d.getDate() - (6 - i));
+                const dayString = d.toISOString().split('T')[0];
+                const dayData = dataByDay[dayString].Maths;
+                return dayData.count > 0 ? dayData.scores.reduce((a, b) => a + b, 0) / dayData.count : 0;
+            });
+
+            const scienceData = labels.map((_, i) => {
+                const d = new Date();
+                d.setDate(d.getDate() - (6 - i));
+                const dayString = d.toISOString().split('T')[0];
+                const dayData = dataByDay[dayString].Science;
+                return dayData.count > 0 ? dayData.scores.reduce((a, b) => a + b, 0) / dayData.count : 0;
+            });
+
+            dailyPerformanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Maths Avg Score', data: mathsData, backgroundColor: '#3B82F6' },
+                        { label: 'Science Avg Score', data: scienceData, backgroundColor: '#10B981' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Average Score (%)' } } }
+                }
             });
         }
 
-        // --- Gemini API Calls ---
-        async function callGeminiAPI(endpoint, prompt, generationConfig = null) {
+        // --- API Communication ---
+        async function callBackendAPI(endpoint, data) {
             const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
                 ? 'http://localhost:5001' 
                 : 'https://homework-app-psi.vercel.app';
             
             const backendUrl = baseUrl + endpoint;
             
-            const payload = {
-                prompt: prompt,
-            };
-
-            if (generationConfig) {
-                payload.generationConfig = generationConfig;
-            }
-
             try {
                 const response = await fetch(backendUrl, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
                 });
 
                 if (!response.ok) {
@@ -594,31 +890,16 @@
                     console.error("Error from backend:", errorData);
                     throw new Error(`API call failed: ${response.status}`);
                 }
-
-                const result = await response.json();
-
-                if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    const text = result.candidates[0].content.parts[0].text;
-                    if (generationConfig && generationConfig.responseMimeType === "application/json") {
-                        try {
-                            return JSON.parse(text);
-                        } catch (e) {
-                            console.error("Failed to parse JSON response from backend:", text);
-                            throw new Error("Invalid JSON response from API.");
-                        }
-                    }
-                    return text;
-                } else {
-                    if (result.promptFeedback?.blockReason) {
-                        throw new Error(`Request blocked: ${result.promptFeedback.blockReason}`);
-                    }
-                    throw new Error("API response was empty or malformed.");
-                }
+                return await response.json();
             } catch (error) {
                 console.error("Network or fetch error:", error);
+                if (error instanceof TypeError && error.message === 'Failed to fetch') {
+                    console.error("This might be a CORS issue or the backend server is not running. Ensure your Python server is active at " + baseUrl);
+                }
                 throw error;
             }
         }
+
     </script>
 </body>
 </html>
