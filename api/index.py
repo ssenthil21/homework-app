@@ -56,7 +56,7 @@ def call_gemini_api(prompt, generation_config=None):
         print(f"An unexpected error occurred: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
 
-@app.route('/generate', methods=['POST'])
+@app.route('/api/generate', methods=['POST'])
 def generate_handler():
     data = request.get_json()
     required_fields = ['classLevel', 'subject', 'topic', 'difficulty']
@@ -107,7 +107,7 @@ def generate_handler():
     }
     return call_gemini_api(prompt, generation_config)
 
-@app.route('/evaluate', methods=['POST'])
+@app.route('/api/evaluate', methods=['POST'])
 def evaluate_handler():
     data = request.get_json()
     if not data or 'questions' not in data or 'answers' not in data:
@@ -134,7 +134,7 @@ def evaluate_handler():
     }
     return call_gemini_api(prompt, generation_config)
 
-@app.route('/get-hint', methods=['POST'])
+@app.route('/api/get-hint', methods=['POST'])
 def get_hint_handler():
     data = request.get_json()
     if not data or 'question' not in data:
