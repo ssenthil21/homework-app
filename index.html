@@ -202,6 +202,7 @@
         let questions = [];
         let score = 0;
         let dailyPerformanceChart = null;
+        let questionBankData = [];
         
         // --- View Controller ---
         function changeView(viewId) {
@@ -737,9 +738,13 @@
                  container.innerHTML = '<p class="text-center text-gray-500 text-lg bg-white p-8 rounded-lg shadow-md">No questions in the bank yet. Complete a quiz to add questions.</p>';
                 return;
             }
+            questionBankData = uniqueQuestions;
 
             container.innerHTML = `
-                 <h2 class="text-2xl font-bold text-slate-800 mb-6">Question Bank</h2>
+                 <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Question Bank</h2>
+                    <button id="download-question-bank" onclick="downloadQuestionBank()" aria-label="Download question bank" class="btn-interactive bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"><i class="fas fa-download mr-2"></i>Download</button>
+                 </div>
                  <div class="space-y-4">
                     ${uniqueQuestions.map(([question, data], index) => `
                         <div class="bg-white rounded-lg shadow-md">
@@ -757,6 +762,23 @@
                     `).join('')}
                  </div>
             `;
+        }
+
+        function downloadQuestionBank() {
+            if (!questionBankData.length) return;
+            const formatted = questionBankData.map(([question, data]) => ({
+                question,
+                topic: data.topic,
+                correctAnswer: data.correctAnswer,
+                explanation: data.explanation
+            }));
+            const blob = new Blob([JSON.stringify(formatted, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `question-bank-${currentStudent?.id || 'data'}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         function toggleHistoryDetails(elementId) {
