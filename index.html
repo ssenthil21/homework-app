@@ -187,12 +187,36 @@
     <script>
         // --- Master Configuration ---
         const masterConfig = {
-            P1: { Maths: ['Numbers to 20', 'Addition & Subtraction'], Science: ['Living & Non-Living Things'] },
-            P2: { Maths: ['Numbers to 100', 'Multiplication Tables'], Science: ['Life Cycles'] },
-            P3: { Maths: ['Fractions', 'Mass', 'Angles'], Science: ['Plant Systems', 'Magnets', 'Classification of Living Things - Plant & Fungi', 'Diversity of Materials'] },
-            P4: { Maths: ['Decimals', 'Area & Perimeter'], Science: ['Energy', 'Matter'] },
-            P5: { Maths: ['Percentage', 'Volume of Cubes'], Science: ['Human Body Systems', 'Water Cycle'] },
-            P6: { Maths: ['Algebra', 'Speed'], Science: ['Forces', 'Interactions in Ecosystems'] },
+            P1: {
+                Maths: ['Numbers to 20', 'Addition & Subtraction'],
+                Science: ['Living & Non-Living Things'],
+                English: []
+            },
+            P2: {
+                Maths: ['Numbers to 100', 'Multiplication Tables'],
+                Science: ['Life Cycles'],
+                English: []
+            },
+            P3: {
+                Maths: ['Fractions', 'Mass', 'Angles'],
+                Science: ['Plant Systems', 'Magnets', 'Classification of Living Things - Plant & Fungi', 'Diversity of Materials'],
+                English: ['Vocabulary MCQ', 'Grammar MCQ', 'Grammar Cloze', 'Comprehension Visual Text', 'Comprehension Open Ended']
+            },
+            P4: {
+                Maths: ['Decimals', 'Area & Perimeter'],
+                Science: ['Energy', 'Matter'],
+                English: []
+            },
+            P5: {
+                Maths: ['Percentage', 'Volume of Cubes'],
+                Science: ['Human Body Systems', 'Water Cycle'],
+                English: []
+            },
+            P6: {
+                Maths: ['Algebra', 'Speed'],
+                Science: ['Forces', 'Interactions in Ecosystems'],
+                English: []
+            },
         };
         const stickers = ['⭐', '👍', '🎉', '🏆', '💯', '✨', '🤩', '🚀'];
 
@@ -334,7 +358,7 @@
             oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
             const recentHistory = history.filter(h => new Date(h.date) >= oneWeekAgo);
 
-            const weeklyStats = { Maths: { correct: 0, total: 0 }, Science: { correct: 0, total: 0 } };
+            const weeklyStats = { Maths: { correct: 0, total: 0 }, Science: { correct: 0, total: 0 }, English: { correct: 0, total: 0 } };
             recentHistory.forEach(quiz => {
                 if (weeklyStats[quiz.subject]) {
                     weeklyStats[quiz.subject].correct += quiz.score;
@@ -375,6 +399,7 @@
             const stats = studentCache.weeklyStats;
             const mathsAccuracy = stats.Maths.total > 0 ? (stats.Maths.correct / stats.Maths.total * 100).toFixed(0) : 0;
             const scienceAccuracy = stats.Science.total > 0 ? (stats.Science.correct / stats.Science.total * 100).toFixed(0) : 0;
+            const englishAccuracy = stats.English.total > 0 ? (stats.English.correct / stats.English.total * 100).toFixed(0) : 0;
             
             container.innerHTML = `
                 <div class="space-y-10">
@@ -385,7 +410,7 @@
                     </div>
                     <div>
                         <h2 class="text-3xl font-bold text-slate-900 mb-4">This Week's Performance</h2>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 card-animated" style="animation-delay: 100ms;">
                                 <h3 class="font-bold text-lg text-blue-600">Maths</h3>
                                 <p class="text-4xl font-extrabold text-slate-900 mt-2">${mathsAccuracy}%</p>
@@ -401,6 +426,14 @@
                                     <div class="bg-green-500 h-2.5 rounded-full progress-bar-fill" style="width: ${scienceAccuracy}%"></div>
                                 </div>
                                 <p class="text-sm text-slate-500 mt-2">${stats.Science.total} questions answered</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 card-animated" style="animation-delay: 300ms;">
+                                <h3 class="font-bold text-lg text-yellow-600">English</h3>
+                                <p class="text-4xl font-extrabold text-slate-900 mt-2">${englishAccuracy}%</p>
+                                <div class="w-full bg-slate-200 rounded-full h-2.5 mt-3">
+                                    <div class="bg-yellow-500 h-2.5 rounded-full progress-bar-fill" style="width: ${englishAccuracy}%"></div>
+                                </div>
+                                <p class="text-sm text-slate-500 mt-2">${stats.English.total} questions answered</p>
                             </div>
                         </div>
                     </div>
@@ -847,7 +880,7 @@
                 d.setDate(d.getDate() - i);
                 const dayString = d.toISOString().split('T')[0];
                 labels.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
-                dataByDay[dayString] = { Maths: { scores: [], count: 0 }, Science: { scores: [], count: 0 }};
+                dataByDay[dayString] = { Maths: { scores: [], count: 0 }, Science: { scores: [], count: 0 }, English: { scores: [], count: 0 } };
             }
 
             history.forEach(test => {
@@ -874,13 +907,22 @@
                 return dayData.count > 0 ? dayData.scores.reduce((a, b) => a + b, 0) / dayData.count : 0;
             });
 
+            const englishData = labels.map((_, i) => {
+                const d = new Date();
+                d.setDate(d.getDate() - (6 - i));
+                const dayString = d.toISOString().split('T')[0];
+                const dayData = dataByDay[dayString].English;
+                return dayData.count > 0 ? dayData.scores.reduce((a, b) => a + b, 0) / dayData.count : 0;
+            });
+
             dailyPerformanceChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
                         { label: 'Maths Avg Score', data: mathsData, backgroundColor: '#3B82F6' },
-                        { label: 'Science Avg Score', data: scienceData, backgroundColor: '#10B981' }
+                        { label: 'Science Avg Score', data: scienceData, backgroundColor: '#10B981' },
+                        { label: 'English Avg Score', data: englishData, backgroundColor: '#F59E0B' }
                     ]
                 },
                 options: {
