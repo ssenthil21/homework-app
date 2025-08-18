@@ -81,6 +81,9 @@ def generate_handler():
         "Ensure the questions are aligned with the Singapore MOE syllabus. "
     )
 
+    if data.get('subject') == 'English' and data.get('template'):
+        prompt += f"\nUse the following question template for formatting:\n{data['template']}"
+
     # Add instruction to avoid repeating questions if a history is provided
     previous_questions = data.get('previous_questions', [])
     if previous_questions:
@@ -102,7 +105,22 @@ def generate_handler():
     generation_config = {
         "responseMimeType": "application/json",
         "responseSchema": {
-            "type": "OBJECT", "properties": { "questions": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "type": {"type": "STRING"}, "question": {"type": "STRING"}, "options": {"type": "ARRAY", "items": {"type": "STRING"}} }, "required": ["type", "question"] } } }
+            "type": "OBJECT",
+            "properties": {
+                "questions": {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "type": {"type": "STRING"},
+                            "question": {"type": "STRING"},
+                            "options": {"type": "ARRAY", "items": {"type": "STRING"}},
+                            "image": {"type": "STRING"}
+                        },
+                        "required": ["type", "question"]
+                    }
+                }
+            }
         }
     }
     return call_gemini_api(prompt, generation_config)
