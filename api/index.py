@@ -69,20 +69,36 @@ def generate_handler():
         return jsonify({"error": f"Missing or empty required fields: {', '.join(missing_fields)}"}), 400
 
     # Build the base prompt
-    prompt = (
-        f"Act as a Primary School teacher in Singapore. "
-        f"Generate a quiz with exactly 5 questions for a {data['classLevel']} student. "
-        f"The subject is {data['subject']} and the specific topic is {data['topic']}. "
-        f"The difficulty level should be {data['difficulty']}. "
-        "The quiz must have this structure: "
-        "1. Two 'single-choice' questions (select one correct answer from 4 options). "
-        "2. One 'multi-select' question (select one or more correct answers from 4 options). "
-        "3. Two 'free-text' questions (open-ended questions requiring a written answer). "
-        "Ensure the questions are aligned with the Singapore MOE syllabus. "
-    )
+    english_mcq_topics = {"Vocabulary MCQ", "Grammar MCQ", "Grammar Cloze"}
+    comprehension_topics = {"Comprehension Visual Text", "Comprehension Open Ended"}
+
+    if data.get('subject') == 'English' and data.get('topic') in english_mcq_topics:
+        prompt = (
+            f"Act as a Primary School teacher in Singapore. "
+            f"Generate a quiz with exactly 5 'single-choice' multiple-choice questions for a {data['classLevel']} student. "
+            f"The subject is {data['subject']} and the specific topic is {data['topic']}. "
+            f"The difficulty level should be {data['difficulty']}. "
+            "Each question must have four options with exactly one correct answer. "
+            "Ensure the questions are aligned with the Singapore MOE syllabus. "
+        )
+    else:
+        prompt = (
+            f"Act as a Primary School teacher in Singapore. "
+            f"Generate a quiz with exactly 5 questions for a {data['classLevel']} student. "
+            f"The subject is {data['subject']} and the specific topic is {data['topic']}. "
+            f"The difficulty level should be {data['difficulty']}. "
+            "The quiz must have this structure: "
+            "1. Two 'single-choice' questions (select one correct answer from 4 options). "
+            "2. One 'multi-select' question (select one or more correct answers from 4 options). "
+            "3. Two 'free-text' questions (open-ended questions requiring a written answer). "
+            "Ensure the questions are aligned with the Singapore MOE syllabus. "
+        )
 
     if data.get('subject') == 'English' and data.get('template'):
         prompt += f"\nUse the following question template for formatting:\n{data['template']}"
+
+    if data.get('subject') == 'English' and data.get('topic') in comprehension_topics:
+        prompt += ("\nAll five questions must be based on the same image. Include an 'image' field with the same URL for each question.")
 
     # Add instruction to avoid repeating questions if a history is provided
     previous_questions = data.get('previous_questions', [])
