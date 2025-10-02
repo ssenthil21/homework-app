@@ -157,10 +157,11 @@
                     <div class="bg-slate-800 text-slate-200 p-6 rounded-xl shadow-lg h-full">
                         <h2 class="text-xl font-bold text-white mb-6">Cleverify</h2>
                         <nav class="space-y-2">
-                            <a href="#" id="nav-dashboard" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('dashboard')"><i class="fas fa-home w-6 mr-2"></i>Dashboard</a>
-                            <a href="#" id="nav-quiz" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('quiz-setup')"><i class="fas fa-rocket w-6 mr-2"></i>Start New Quiz</a>
-                            <a href="#" id="nav-history" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('history')"><i class="fas fa-history w-6 mr-2"></i>My History</a>
-                            <a href="#" id="nav-bank" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('bank')"><i class="fas fa-database w-6 mr-2"></i>Question Bank</a>
+                            <a href="#" id="nav-dashboard" data-sub-view="dashboard" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('dashboard')"><i class="fas fa-home w-6 mr-2"></i>Dashboard</a>
+                            <a href="#" id="nav-quiz" data-sub-view="quiz-setup" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('quiz-setup')"><i class="fas fa-rocket w-6 mr-2"></i>Start New Quiz</a>
+                            <a href="#" id="nav-history" data-sub-view="history" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('history')"><i class="fas fa-history w-6 mr-2"></i>My History</a>
+                            <a href="#" id="nav-bank" data-sub-view="bank" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('bank')"><i class="fas fa-database w-6 mr-2"></i>Question Bank</a>
+                            <a href="#" id="nav-year-end" data-sub-view="year-end" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold hidden" onclick="showStudentSubView('year-end')"><i class="fas fa-file-alt w-6 mr-2"></i>Year-End Paper</a>
                             <a href="#" id="nav-parent" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold mt-8" onclick="changeView('parent-dashboard-view')"><i class="fas fa-user-shield w-6 mr-2"></i>Parent View</a>
                         </nav>
                     </div>
@@ -198,9 +199,37 @@
                 English: []
             },
             P3: {
-                Maths: ['Length', 'Mass', 'Volume', 'Fractions', 'Perpendicular and parallel line'],
-                Science: ['Plant Systems', 'Magnets', 'Classification of Living Things - Plant & Fungi', 'Diversity of Materials'],
-                English: ['Vocabulary MCQ', 'Grammar MCQ', 'Grammar Cloze', 'Comprehension Visual Text', 'Comprehension Open Ended']
+                Maths: [
+                    'Numbers to 10 000',
+                    'Addition and Subtraction',
+                    'Money',
+                    'Multiplication Tables of 6, 7, 8 and 9',
+                    'Multiplication and Division',
+                    'More Word Problems',
+                    'Bar Graphs',
+                    'Angles',
+                    'Perpendicular and Parallel Lines',
+                    'Fractions',
+                    'Length, Mass and Volume',
+                    'Area and Perimeter',
+                    'Time'
+                ],
+                Science: [
+                    'Diversity of Living Things',
+                    'Classification of Living Things',
+                    'Diversity of Materials',
+                    'Life cycles (Plants & Animals)',
+                    'Properties of Magnets',
+                    'Making and Using Magnets'
+                ],
+                English: [
+                    'Vocab MCQ',
+                    'Grammar MCQ',
+                    'Grammar Cloze',
+                    'Comprehension Cloze',
+                    'Sentence Combining',
+                    'Comprehension (Open-Ended)'
+                ]
             },
             P4: {
                 Maths: ['Decimals', 'Area & Perimeter'],
@@ -219,11 +248,12 @@
             },
         };
         const englishTemplates = {
-            'Vocabulary MCQ': `My grandmother always tells me a ______ before I go to bed.\n\n1) poem 2) story 3) map 4) game\n(    )`,
-            'Grammar MCQ': `She ______ going to the library tomorrow.\n\n1) is 2) are 3) was 4) were\n(    )`,
-            'Grammar Cloze': `She ______ to the park every Saturday.\n\n1) go 2) goes 3) going 4) gone\n(    )`,
-            'Comprehension Visual Text': `Use a single 'image' field with a URL that applies to all five questions. Display the image above the question text and options for each question.`,
-            'Comprehension Open Ended': `Use a single 'image' field with a URL that applies to all five questions. Display the image above each open-ended question about the image.`
+            'Vocab MCQ': `Create vocabulary multiple-choice questions similar to: My grandmother always tells me a ______ before I go to bed.\nOptions: 1) poem 2) story 3) map 4) game.`,
+            'Grammar MCQ': `Use short sentences with one verb missing and four answer options (e.g. She ______ going to the library tomorrow.).`,
+            'Grammar Cloze': `Create short cloze sentences with one blank each that focus on Primary 3 grammar points (tenses, prepositions, subject-verb agreement). Provide four options labelled 1) to 4) for each question.`,
+            'Comprehension Cloze': `Use a single short passage (80-100 words) with numbered blanks. Each of the five questions should reference one blank (Blank 1 to Blank 5) and list four options (A-D) to fill it.`,
+            'Sentence Combining': `Ask students to combine two related sentences into one well-formed sentence without changing the original meaning.`,
+            'Comprehension (Open-Ended)': `Use a single 'image' field with a URL that applies to all five questions. Display the image above each open-ended question about the image.`
         };
         const stickers = ['⭐', '👍', '🎉', '🏆', '💯', '✨', '🤩', '🚀'];
 
@@ -380,13 +410,25 @@
         function renderStudentWorkspace() {
             document.getElementById('student-header').innerHTML = `<span>${studentCache.profile.name}</span><span class="ml-2 text-sm font-medium bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md">${studentCache.profile.level}</span>`;
             updateGamificationDisplay();
+            const yearEndLink = document.getElementById('nav-year-end');
+            if (yearEndLink) {
+                if (studentCache.profile.level === 'P3') {
+                    yearEndLink.classList.remove('hidden');
+                } else {
+                    yearEndLink.classList.add('hidden');
+                    yearEndLink.classList.remove('active');
+                }
+            }
             showStudentSubView('dashboard');
         }
 
         function showStudentSubView(subView) {
-            document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
-            document.getElementById(`nav-${subView.split('-')[0]}`).classList.add('active');
-            
+            document.querySelectorAll('.sidebar-link[data-sub-view]').forEach(l => l.classList.remove('active'));
+            const activeLink = document.querySelector(`.sidebar-link[data-sub-view="${subView}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+
             const contentArea = document.getElementById('student-main-content');
             if (subView === 'dashboard') {
                 renderStudentDashboard(contentArea);
@@ -396,6 +438,8 @@
                 renderHistoryView(contentArea);
             } else if (subView === 'bank') {
                 renderQuestionBankView(contentArea);
+            } else if (subView === 'year-end') {
+                renderYearEndPaperView(contentArea);
             } else if (subView === 'quiz') {
                 renderQuizInterface(contentArea, window.currentQuizParams);
             }
@@ -810,6 +854,127 @@
                     `).join('')}
                  </div>
             `;
+        }
+
+        function renderYearEndPaperView(container) {
+            const isP3 = studentCache.profile?.level === 'P3';
+            if (!isP3) {
+                container.innerHTML = '<p class="text-center text-gray-500 text-lg bg-white p-8 rounded-lg shadow-md">Year-end papers are currently available for Primary 3 students only.</p>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
+                        <h2 class="text-2xl font-bold text-slate-900">Primary 3 Year-End Practice Paper</h2>
+                        <p class="mt-2 text-slate-600">Generate a full-length mock examination aligned with the Singapore MOE syllabus for English, Mathematics and Science. Each paper comes with suggested answers for self-marking.</p>
+                        <div class="mt-6 flex flex-col sm:flex-row gap-3">
+                            <button id="generate-year-end-button" class="btn-interactive bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg" onclick="generateYearEndPaper()"><i class="fas fa-file-alt mr-2"></i>Generate Practice Paper</button>
+                            <button class="btn-interactive bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-3 px-4 rounded-lg" onclick="showStudentSubView('quiz-setup')"><i class="fas fa-undo mr-2"></i>Back to Quizzes</button>
+                        </div>
+                        <p id="year-end-status" class="mt-4 text-sm text-slate-500 hidden"></p>
+                    </div>
+                    <div id="year-end-paper-container" class="space-y-6"></div>
+                </div>
+            `;
+        }
+
+        async function generateYearEndPaper() {
+            if (!currentStudent || currentStudent.level !== 'P3') {
+                return;
+            }
+
+            const button = document.getElementById('generate-year-end-button');
+            const statusEl = document.getElementById('year-end-status');
+            const paperContainer = document.getElementById('year-end-paper-container');
+            if (!button || !statusEl || !paperContainer) {
+                return;
+            }
+
+            const originalButtonText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
+            statusEl.classList.remove('hidden');
+            statusEl.textContent = 'Generating a fresh set of questions. This may take a few moments.';
+            paperContainer.innerHTML = '';
+
+            try {
+                const payload = {
+                    classLevel: currentStudent.level,
+                    subjects: masterConfig['P3']
+                };
+                const paper = await callBackendAPI('/api/generate-year-end', payload);
+                displayYearEndPaper(paper);
+                statusEl.textContent = 'Paper generated successfully! Scroll down to view the questions and answer guide.';
+            } catch (error) {
+                console.error('Error generating year-end paper:', error);
+                statusEl.textContent = 'Sorry, something went wrong while generating the paper. Please try again later.';
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalButtonText;
+            }
+        }
+
+        function displayYearEndPaper(paper) {
+            const paperContainer = document.getElementById('year-end-paper-container');
+            if (!paperContainer) {
+                return;
+            }
+
+            if (!paper || !paper.sections || !Array.isArray(paper.sections) || paper.sections.length === 0) {
+                paperContainer.innerHTML = '<p class="text-center text-gray-500 text-lg bg-white p-8 rounded-lg shadow-md">No paper details were returned. Please try generating again.</p>';
+                return;
+            }
+
+            const headerHtml = `
+                <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
+                    <h3 class="text-3xl font-bold text-slate-900">${paper.paper_title || 'Primary 3 Year-End Practice Paper'}</h3>
+                    ${paper.duration_minutes ? `<p class="mt-2 text-slate-600">Recommended Duration: ${paper.duration_minutes} minutes</p>` : ''}
+                </div>
+            `;
+            paperContainer.innerHTML = headerHtml;
+
+            paper.sections.forEach(section => {
+                const sectionTitle = section.section_title || `${section.subject || 'Section'} Paper`;
+                const instructions = section.instructions ? `<p class="mt-2 text-slate-600 whitespace-pre-line">${section.instructions}</p>` : '';
+                const timing = section.time_allocated_minutes ? `<p class="mt-2 text-sm text-slate-500"><strong>Suggested Time:</strong> ${section.time_allocated_minutes} minutes</p>` : '';
+                const marks = section.total_marks ? `<p class="mt-1 text-sm text-slate-500"><strong>Total Marks:</strong> ${section.total_marks}</p>` : '';
+
+                const questionsHtml = (section.questions || []).map(question => {
+                    const optionsHtml = Array.isArray(question.options) && question.options.length
+                        ? `<ul class="mt-3 space-y-2">${question.options.map(opt => `<li class="bg-white/60 border border-slate-200 rounded-lg px-3 py-2"><span class="font-medium">${opt}</span></li>`).join('')}</ul>`
+                        : '';
+                    const explanationHtml = question.answer_explanation
+                        ? `<p class="mt-2 text-sm text-slate-600"><strong>Explanation:</strong> ${question.answer_explanation}</p>`
+                        : '';
+                    const marksHtml = question.marks ? `<p class="mt-2 text-xs uppercase tracking-wide text-slate-500">Marks: ${question.marks}</p>` : '';
+
+                    return `
+                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                            <p class="font-semibold text-slate-800">${question.number || ''}. ${question.prompt || ''}</p>
+                            ${optionsHtml}
+                            <p class="mt-3 text-sm text-indigo-700"><strong>Answer:</strong> ${question.answer || 'Refer to teacher guidance.'}</p>
+                            ${explanationHtml}
+                            ${marksHtml}
+                        </div>
+                    `;
+                }).join('');
+
+                paperContainer.innerHTML += `
+                    <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 space-y-4">
+                        <div>
+                            <h4 class="text-2xl font-bold text-slate-900">${sectionTitle}</h4>
+                            ${section.subject ? `<p class="text-sm text-indigo-600 font-semibold uppercase tracking-wide">${section.subject}</p>` : ''}
+                            ${instructions}
+                            ${timing}
+                            ${marks}
+                        </div>
+                        <div class="space-y-4">
+                            ${questionsHtml || '<p class="text-slate-500">No questions provided.</p>'}
+                        </div>
+                    </div>
+                `;
+            });
         }
 
         function downloadQuestionBank() {
