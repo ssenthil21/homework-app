@@ -14,6 +14,44 @@ CORS(app)
 API_KEY = os.environ.get("GOOGLE_API_KEY", "").strip()
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
 
+P3_YEAR_END_TOPICS = {
+    "English": [
+        "Vocab MCQ",
+        "Grammar MCQ",
+        "Grammar Cloze",
+        "Comprehension Cloze",
+        "Sentence Combining",
+        "Comprehension (Open-Ended)"
+    ],
+    "Maths": [
+        "Numbers to 10 000",
+        "Addition and Subtraction",
+        "Money",
+        "Multiplication Tables of 6, 7, 8 and 9",
+        "Multiplication and Division",
+        "More Word Problems",
+        "Bar Graphs",
+        "Angles",
+        "Perpendicular and Parallel Lines",
+        "Fractions",
+        "Length, Mass and Volume",
+        "Area and Perimeter",
+        "Time"
+    ],
+    "Science": [
+        "Diversity of Living Things",
+        "Classification of Living Things",
+        "Diversity of Materials",
+        "Life cycles (Plants & Animals)",
+        "Properties of Magnets",
+        "Making and Using Magnets"
+    ]
+}
+
+def _json_error(message, status_code=400):
+    """Return a JSON error response with a consistent structure."""
+    return jsonify({"error": message}), status_code
+
 def call_gemini_api(prompt, generation_config=None):
     """Helper function to call the Gemini API."""
     if not API_KEY:
@@ -56,21 +94,19 @@ def call_gemini_api(prompt, generation_config=None):
         print(f"An unexpected error occurred: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
 
-@app.route('/api/generate', methods=['POST'])
-def generate_handler():
-    data = request.get_json()
+def _handle_generate_quiz(data):
     required_fields = ['classLevel', 'subject', 'topic', 'difficulty']
-    
+
     if not data:
-        return jsonify({"error": "Request body must be JSON."}), 400
+        return _json_error("Request body must be JSON.")
 
     missing_fields = [field for field in required_fields if field not in data or not data[field]]
     if missing_fields:
-        return jsonify({"error": f"Missing or empty required fields: {', '.join(missing_fields)}"}), 400
+        return _json_error(f"Missing or empty required fields: {', '.join(missing_fields)}")
 
     # Build the base prompt
-    english_mcq_topics = {"Vocabulary MCQ", "Grammar MCQ", "Grammar Cloze"}
-    comprehension_topics = {"Comprehension Visual Text", "Comprehension Open Ended"}
+    english_mcq_topics = {"Vocab MCQ", "Grammar MCQ", "Grammar Cloze", "Comprehension Cloze"}
+    comprehension_topics = {"Comprehension (Open-Ended)"}
 
     if data.get('subject') == 'English' and data.get('topic') in english_mcq_topics:
         prompt = (
@@ -103,7 +139,6 @@ def generate_handler():
     # Add instruction to avoid repeating questions if a history is provided
     previous_questions = data.get('previous_questions', [])
     if previous_questions:
-        # Create a formatted list of previous questions for the prompt
         previous_questions_text = "\n".join([f"- {q}" for q in previous_questions])
         prompt += (
             "\nIMPORTANT: To ensure variety, do not generate any of the following questions that the student has already answered for this topic:\n"
@@ -117,7 +152,7 @@ def generate_handler():
         "Each question object must have: a 'type' (string: 'single-choice', 'multi-select', or 'free-text'), "
         "a 'question' (string), and for choice questions, an 'options' array of 4 strings."
     )
-    
+
     generation_config = {
         "responseMimeType": "application/json",
         "responseSchema": {
@@ -141,16 +176,163 @@ def generate_handler():
     }
     return call_gemini_api(prompt, generation_config)
 
-@app.route('/api/evaluate', methods=['POST'])
-def evaluate_handler():
+
+
+def _dispatch_to_handler(target_path, data):
+    route_map = {
+        'generate': _handle_generate_quiz,
+        'generate-year-end': _handle_year_end_paper,
+        'evaluate': _handle_evaluate,
+        'get-hint': _handle_hint,
+    }
+
+    handler = route_map.get(target_path)
+    if not handler:
+        return _json_error("Requested endpoint was not found.", 404)
+
+    return handler(data)
+
+
+@app.route('/api/index.py', methods=['POST', 'OPTIONS'])
+def vercel_dispatch_handler():
+    if request.method == 'OPTIONS':
+        return ('', 204)
+
+    target_path = (request.args.get('path') or '').strip('/')
+    data = request.get_json(silent=True)
+    if not target_path and isinstance(data, dict):
+        target_path = data.get('__route', '').strip('/')
+
+    if not target_path:
+        return _json_error('Requested endpoint was not found.', 404)
+
+    return _dispatch_to_handler(target_path, data)
+
+
+@app.route('/api/generate', methods=['POST'])
+def generate_handler():
     data = request.get_json()
+    return _handle_generate_quiz(data)
+
+
+def _handle_year_end_paper(data):
+    data = data or {}
+    class_level = data.get('classLevel')
+
+    if not class_level:
+        return _json_error("Missing 'classLevel' in request.")
+
+    if class_level != 'P3':
+        return _json_error("Year-end paper generation is currently supported for Primary 3 only.")
+
+    subjects_input = data.get('subjects')
+    subjects = {}
+    if isinstance(subjects_input, dict):
+        for subject, topics in subjects_input.items():
+            if isinstance(topics, list) and topics:
+                subjects[subject] = topics
+
+    for subject, default_topics in P3_YEAR_END_TOPICS.items():
+        subjects.setdefault(subject, default_topics)
+
+    ordered_subjects = ["English", "Maths", "Science"]
+    topic_lines = []
+    for subject in ordered_subjects:
+        topic_list = subjects.get(subject, P3_YEAR_END_TOPICS.get(subject, []))
+        if topic_list:
+            topic_lines.append(f"{subject}: {', '.join(topic_list)}")
+    topic_text = "\n".join(topic_lines)
+
+    prompt = (
+        "Act as an experienced Primary 3 teacher in Singapore preparing a year-end practice examination that follows the latest"
+        "Singapore MOE syllabus. "
+        "Create a complete Primary 3 practice paper with separate sections for English, Mathematics, and Science. "
+        "Follow these requirements:\n"
+        "1. Present the paper in three sections (English, Mathematics, Science) in that order with clear section titles.\n"
+        "2. Use only these Primary 3 topics:\n"
+        f"{topic_text}\n"
+        "3. Provide an overall paper title and recommended total duration in minutes.\n"
+        "4. English section (align with Paper 2 Language Use & Comprehension):\n"
+        "   • Include section instructions suitable for Primary 3 students.\n"
+        "   • Add 3 Vocabulary MCQ questions and 3 Grammar MCQ questions.\n"
+        "   • Add 2 Grammar Cloze questions. Each Grammar Cloze question should contain a short passage with three blanks, each blank offering four MCQ options.\n"
+        "   • Add 1 Comprehension Cloze passage with five blanks (treated as five questions) and four MCQ options for each blank.\n"
+        "   • Add 2 Sentence Combining questions that are open-ended.\n"
+        "   • Add 2 Comprehension open-ended questions tied to one short passage.\n"
+        "5. Mathematics section:\n"
+        "   • Provide section instructions, suggested time, and total marks.\n"
+        "   • Include 10 questions: 4 MCQ, 4 short-answer, and 2 structured word problems that expect working steps.\n"
+        "6. Science section:\n"
+        "   • Provide section instructions, suggested time, and total marks.\n"
+        "   • Include 8 questions: 4 MCQ and 4 open-ended questions focusing on explanation or application of concepts.\n"
+        "7. For every question, include an answer and, where helpful, a short explanation aligned with MOE marking expectations.\n"
+        "8. Number questions within each section starting from Q1.\n"
+        "9. Return the paper strictly as JSON that follows the provided schema."
+    )
+
+    generation_config = {
+        "responseMimeType": "application/json",
+        "responseSchema": {
+            "type": "OBJECT",
+            "properties": {
+                "paper_title": {"type": "STRING"},
+                "duration_minutes": {"type": "INTEGER"},
+                "sections": {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "subject": {"type": "STRING"},
+                            "section_title": {"type": "STRING"},
+                            "instructions": {"type": "STRING"},
+                            "time_allocated_minutes": {"type": "INTEGER"},
+                            "total_marks": {"type": "INTEGER"},
+                            "questions": {
+                                "type": "ARRAY",
+                                "items": {
+                                    "type": "OBJECT",
+                                    "properties": {
+                                        "number": {"type": "STRING"},
+                                        "type": {"type": "STRING"},
+                                        "prompt": {"type": "STRING"},
+                                        "options": {"type": "ARRAY", "items": {"type": "STRING"}},
+                                        "marks": {"type": "INTEGER"},
+                                        "answer": {"type": "STRING"},
+                                        "answer_explanation": {"type": "STRING"}
+                                    },
+                                    "required": ["number", "type", "prompt", "answer"]
+                                }
+                            }
+                        },
+                        "required": ["subject", "section_title", "instructions", "questions"]
+                    }
+                }
+            },
+            "required": ["paper_title", "sections"]
+        }
+    }
+
+    return call_gemini_api(prompt, generation_config)
+
+
+@app.route('/api/generate-year-end', methods=['POST'])
+def generate_year_end_handler():
+    data = request.get_json()
+    return _handle_year_end_paper(data)
+
+
+def _handle_evaluate(data):
     if not data or 'questions' not in data or 'answers' not in data:
-        return jsonify({"error": "Missing 'questions' or 'answers' in request."}), 400
+        return _json_error("Missing 'questions' or 'answers' in request.")
 
     questions_and_answers_text = ""
     for i, q in enumerate(data['questions']):
-        answer_text = str(data['answers'][i]) # Convert answer to string for the prompt
-        questions_and_answers_text += f"Question {i+1} (type: {q['type']}): {q['question']}\nOptions: {q.get('options', 'N/A')}\nStudent's Answer: {answer_text}\n\n"
+        answer_text = str(data['answers'][i])  # Convert answer to string for the prompt
+        questions_and_answers_text += (
+            f"Question {i+1} (type: {q['type']}): {q['question']}\n"
+            f"Options: {q.get('options', 'N/A')}\n"
+            f"Student's Answer: {answer_text}\n\n"
+        )
 
     prompt = (
         f"Act as a Primary School teacher in Singapore. "
@@ -163,20 +345,49 @@ def evaluate_handler():
     generation_config = {
         "responseMimeType": "application/json",
         "responseSchema": {
-            "type": "OBJECT", "properties": { "evaluation": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "is_correct": {"type": "BOOLEAN"}, "correct_answer": {"type": "STRING"}, "explanation": {"type": "STRING"} }, "required": ["is_correct", "correct_answer", "explanation"] } } }
+            "type": "OBJECT",
+            "properties": {
+                "evaluation": {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "is_correct": {"type": "BOOLEAN"},
+                            "correct_answer": {"type": "STRING"},
+                            "explanation": {"type": "STRING"}
+                        },
+                        "required": ["is_correct", "correct_answer", "explanation"]
+                    }
+                }
+            }
         }
     }
     return call_gemini_api(prompt, generation_config)
 
+
+@app.route('/api/evaluate', methods=['POST'])
+def evaluate_handler():
+    data = request.get_json()
+    return _handle_evaluate(data)
+
+
+def _handle_hint(data):
+    if not data or 'question' not in data:
+        return _json_error("Missing 'question' in request.")
+
+    prompt = (
+        "Provide a simple one-sentence hint for a Primary 3 student for the following question, "
+        "but do not give away the answer: \"{question}\""
+    ).format(question=data['question'])
+
+    return call_gemini_api(prompt)
+
+
 @app.route('/api/get-hint', methods=['POST'])
 def get_hint_handler():
     data = request.get_json()
-    if not data or 'question' not in data:
-        return jsonify({"error": "Missing 'question' in request."}), 400
-    
-    prompt = f"Provide a simple one-sentence hint for a Primary 3 student for the following question, but do not give away the answer: \"{data['question']}\""
-    
-    return call_gemini_api(prompt)
+    return _handle_hint(data)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
