@@ -48,6 +48,10 @@ P3_YEAR_END_TOPICS = {
     ]
 }
 
+def _json_error(message, status_code=400):
+    """Return a JSON error response with a consistent structure."""
+    return jsonify({"error": message}), status_code
+
 def call_gemini_api(prompt, generation_config=None):
     """Helper function to call the Gemini API."""
     if not API_KEY:
@@ -90,17 +94,15 @@ def call_gemini_api(prompt, generation_config=None):
         print(f"An unexpected error occurred: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
 
-@app.route('/api/generate', methods=['POST'])
-def generate_handler():
-    data = request.get_json()
+def _handle_generate_quiz(data):
     required_fields = ['classLevel', 'subject', 'topic', 'difficulty']
-    
+
     if not data:
-        return jsonify({"error": "Request body must be JSON."}), 400
+        return _json_error("Request body must be JSON.")
 
     missing_fields = [field for field in required_fields if field not in data or not data[field]]
     if missing_fields:
-        return jsonify({"error": f"Missing or empty required fields: {', '.join(missing_fields)}"}), 400
+        return _json_error(f"Missing or empty required fields: {', '.join(missing_fields)}")
 
     # Build the base prompt
     english_mcq_topics = {"Vocab MCQ", "Grammar MCQ", "Grammar Cloze", "Comprehension Cloze"}
@@ -137,7 +139,6 @@ def generate_handler():
     # Add instruction to avoid repeating questions if a history is provided
     previous_questions = data.get('previous_questions', [])
     if previous_questions:
-        # Create a formatted list of previous questions for the prompt
         previous_questions_text = "\n".join([f"- {q}" for q in previous_questions])
         prompt += (
             "\nIMPORTANT: To ensure variety, do not generate any of the following questions that the student has already answered for this topic:\n"
@@ -151,7 +152,7 @@ def generate_handler():
         "Each question object must have: a 'type' (string: 'single-choice', 'multi-select', or 'free-text'), "
         "a 'question' (string), and for choice questions, an 'options' array of 4 strings."
     )
-    
+
     generation_config = {
         "responseMimeType": "application/json",
         "responseSchema": {
@@ -175,16 +176,54 @@ def generate_handler():
     }
     return call_gemini_api(prompt, generation_config)
 
-@app.route('/api/generate-year-end', methods=['POST'])
-def generate_year_end_handler():
-    data = request.get_json() or {}
+
+
+def _dispatch_to_handler(target_path, data):
+    route_map = {
+        'generate': _handle_generate_quiz,
+        'generate-year-end': _handle_year_end_paper,
+        'evaluate': _handle_evaluate,
+        'get-hint': _handle_hint,
+    }
+
+    handler = route_map.get(target_path)
+    if not handler:
+        return _json_error("Requested endpoint was not found.", 404)
+
+    return handler(data)
+
+
+@app.route('/api/index.py', methods=['POST', 'OPTIONS'])
+def vercel_dispatch_handler():
+    if request.method == 'OPTIONS':
+        return ('', 204)
+
+    target_path = (request.args.get('path') or '').strip('/')
+    data = request.get_json(silent=True)
+    if not target_path and isinstance(data, dict):
+        target_path = data.get('__route', '').strip('/')
+
+    if not target_path:
+        return _json_error('Requested endpoint was not found.', 404)
+
+    return _dispatch_to_handler(target_path, data)
+
+
+@app.route('/api/generate', methods=['POST'])
+def generate_handler():
+    data = request.get_json()
+    return _handle_generate_quiz(data)
+
+
+def _handle_year_end_paper(data):
+    data = data or {}
     class_level = data.get('classLevel')
 
     if not class_level:
-        return jsonify({"error": "Missing 'classLevel' in request."}), 400
+        return _json_error("Missing 'classLevel' in request.")
 
     if class_level != 'P3':
-        return jsonify({"error": "Year-end paper generation is currently supported for Primary 3 only."}), 400
+        return _json_error("Year-end paper generation is currently supported for Primary 3 only.")
 
     subjects_input = data.get('subjects')
     subjects = {}
@@ -205,7 +244,7 @@ def generate_year_end_handler():
     topic_text = "\n".join(topic_lines)
 
     prompt = (
-        "Act as an experienced Primary 3 teacher in Singapore preparing a year-end practice examination that follows the latest "
+        "Act as an experienced Primary 3 teacher in Singapore preparing a year-end practice examination that follows the latest"
         "Singapore MOE syllabus. "
         "Create a complete Primary 3 practice paper with separate sections for English, Mathematics, and Science. "
         "Follow these requirements:\n"
@@ -275,16 +314,25 @@ def generate_year_end_handler():
 
     return call_gemini_api(prompt, generation_config)
 
-@app.route('/api/evaluate', methods=['POST'])
-def evaluate_handler():
+
+@app.route('/api/generate-year-end', methods=['POST'])
+def generate_year_end_handler():
     data = request.get_json()
+    return _handle_year_end_paper(data)
+
+
+def _handle_evaluate(data):
     if not data or 'questions' not in data or 'answers' not in data:
-        return jsonify({"error": "Missing 'questions' or 'answers' in request."}), 400
+        return _json_error("Missing 'questions' or 'answers' in request.")
 
     questions_and_answers_text = ""
     for i, q in enumerate(data['questions']):
-        answer_text = str(data['answers'][i]) # Convert answer to string for the prompt
-        questions_and_answers_text += f"Question {i+1} (type: {q['type']}): {q['question']}\nOptions: {q.get('options', 'N/A')}\nStudent's Answer: {answer_text}\n\n"
+        answer_text = str(data['answers'][i])  # Convert answer to string for the prompt
+        questions_and_answers_text += (
+            f"Question {i+1} (type: {q['type']}): {q['question']}\n"
+            f"Options: {q.get('options', 'N/A')}\n"
+            f"Student's Answer: {answer_text}\n\n"
+        )
 
     prompt = (
         f"Act as a Primary School teacher in Singapore. "
@@ -297,20 +345,49 @@ def evaluate_handler():
     generation_config = {
         "responseMimeType": "application/json",
         "responseSchema": {
-            "type": "OBJECT", "properties": { "evaluation": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "is_correct": {"type": "BOOLEAN"}, "correct_answer": {"type": "STRING"}, "explanation": {"type": "STRING"} }, "required": ["is_correct", "correct_answer", "explanation"] } } }
+            "type": "OBJECT",
+            "properties": {
+                "evaluation": {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "is_correct": {"type": "BOOLEAN"},
+                            "correct_answer": {"type": "STRING"},
+                            "explanation": {"type": "STRING"}
+                        },
+                        "required": ["is_correct", "correct_answer", "explanation"]
+                    }
+                }
+            }
         }
     }
     return call_gemini_api(prompt, generation_config)
 
+
+@app.route('/api/evaluate', methods=['POST'])
+def evaluate_handler():
+    data = request.get_json()
+    return _handle_evaluate(data)
+
+
+def _handle_hint(data):
+    if not data or 'question' not in data:
+        return _json_error("Missing 'question' in request.")
+
+    prompt = (
+        "Provide a simple one-sentence hint for a Primary 3 student for the following question, "
+        "but do not give away the answer: \"{question}\""
+    ).format(question=data['question'])
+
+    return call_gemini_api(prompt)
+
+
 @app.route('/api/get-hint', methods=['POST'])
 def get_hint_handler():
     data = request.get_json()
-    if not data or 'question' not in data:
-        return jsonify({"error": "Missing 'question' in request."}), 400
-    
-    prompt = f"Provide a simple one-sentence hint for a Primary 3 student for the following question, but do not give away the answer: \"{data['question']}\""
-    
-    return call_gemini_api(prompt)
+    return _handle_hint(data)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
