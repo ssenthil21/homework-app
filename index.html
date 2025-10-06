@@ -1118,7 +1118,7 @@
                 };
                 const paper = await callBackendAPI('/api/generate-year-end', payload);
                 displayYearEndPaper(paper);
-                statusEl.textContent = 'Paper generated successfully! Scroll down to view the questions and answer guide.';
+                statusEl.textContent = 'Paper generated successfully! Scroll down to attempt the questions, then reveal the answer key when you are ready to check your work.';
             } catch (error) {
                 console.error('Error generating year-end paper:', error);
                 statusEl.textContent = 'Sorry, something went wrong while generating the paper. Please try again later.';
@@ -1147,6 +1147,8 @@
             `;
             paperContainer.innerHTML = headerHtml;
 
+            const answerKeyEntries = [];
+
             paper.sections.forEach(section => {
                 const sectionTitle = section.section_title || `${section.subject || 'Section'} Paper`;
                 const instructions = section.instructions ? `<p class="mt-2 text-slate-600 whitespace-pre-line">${section.instructions}</p>` : '';
@@ -1155,20 +1157,36 @@
 
                 const questionsHtml = (section.questions || []).map(question => {
                     const optionsHtml = Array.isArray(question.options) && question.options.length
-                        ? `<ul class="mt-3 space-y-2">${question.options.map(opt => `<li class="bg-white/60 border border-slate-200 rounded-lg px-3 py-2"><span class="font-medium">${opt}</span></li>`).join('')}</ul>`
-                        : '';
-                    const explanationHtml = question.answer_explanation
-                        ? `<p class="mt-2 text-sm text-slate-600"><strong>Explanation:</strong> ${question.answer_explanation}</p>`
+                        ? `<ul class="mt-3 space-y-2">${question.options.map(opt => `<li class="bg-white/60 border border-slate-200 rounded-lg px-3 py-2"><span class="font-medium">${escapeHtml(opt)}</span></li>`).join('')}</ul>`
                         : '';
                     const marksHtml = question.marks ? `<p class="mt-2 text-xs uppercase tracking-wide text-slate-500">Marks: ${question.marks}</p>` : '';
                     const topicHtml = question.topic ? `<p class="mt-2 text-xs text-slate-500"><strong>Topic:</strong> ${escapeHtml(question.topic)}</p>` : '';
+                    const questionNumber = question.number || '';
+                    const promptHtml = `${questionNumber ? `${questionNumber}. ` : ''}${escapeHtml(question.prompt || '')}`;
+
+                    if (question.answer || question.answer_explanation) {
+                        const answerLines = [];
+                        if (question.answer) {
+                            answerLines.push(`<p class="mt-2 text-sm text-indigo-700"><strong>Answer:</strong> ${escapeHtml(question.answer)}</p>`);
+                        }
+                        if (question.answer_explanation) {
+                            answerLines.push(`<p class="mt-2 text-sm text-slate-600"><strong>Explanation:</strong> ${escapeHtml(question.answer_explanation)}</p>`);
+                        }
+
+                        answerKeyEntries.push(`
+                            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                <p class="font-semibold text-slate-800">${promptHtml}</p>
+                                ${answerLines.join('')}
+                                ${marksHtml}
+                                ${topicHtml}
+                            </div>
+                        `);
+                    }
 
                     return `
                         <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                            <p class="font-semibold text-slate-800">${question.number || ''}. ${question.prompt || ''}</p>
+                            <p class="font-semibold text-slate-800">${promptHtml}</p>
                             ${optionsHtml}
-                            <p class="mt-3 text-sm text-indigo-700"><strong>Answer:</strong> ${question.answer || 'Refer to teacher guidance.'}</p>
-                            ${explanationHtml}
                             ${marksHtml}
                             ${topicHtml}
                         </div>
@@ -1190,6 +1208,37 @@
                     </div>
                 `;
             });
+
+            if (answerKeyEntries.length) {
+                paperContainer.innerHTML += `
+                    <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <h4 class="text-2xl font-bold text-slate-900">Answer Key</h4>
+                                <p class="text-sm text-slate-600">Reveal the solutions after you have completed the paper.</p>
+                            </div>
+                            <button type="button" class="btn-interactive bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg" onclick="toggleYearEndAnswerKey()">
+                                <span id="year-end-answer-key-toggle-label">Show Answer Key</span>
+                            </button>
+                        </div>
+                        <div id="year-end-answer-key" class="mt-6 space-y-4 hidden">
+                            ${answerKeyEntries.join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function toggleYearEndAnswerKey() {
+            const answerKeyEl = document.getElementById('year-end-answer-key');
+            const toggleLabel = document.getElementById('year-end-answer-key-toggle-label');
+            if (!answerKeyEl || !toggleLabel) {
+                return;
+            }
+
+            const willShow = answerKeyEl.classList.contains('hidden');
+            answerKeyEl.classList.toggle('hidden');
+            toggleLabel.textContent = willShow ? 'Hide Answer Key' : 'Show Answer Key';
         }
 
         function downloadQuestionBank() {
