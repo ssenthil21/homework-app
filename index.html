@@ -159,6 +159,7 @@
                         <nav class="space-y-2">
                             <a href="#" id="nav-dashboard" data-sub-view="dashboard" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('dashboard')"><i class="fas fa-home w-6 mr-2"></i>Dashboard</a>
                             <a href="#" id="nav-quiz" data-sub-view="quiz-setup" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('quiz-setup')"><i class="fas fa-rocket w-6 mr-2"></i>Start New Quiz</a>
+                            <a href="#" id="nav-question-paper" data-sub-view="question-paper" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('question-paper')"><i class="fas fa-file-circle-question w-6 mr-2"></i>Question Paper</a>
                             <a href="#" id="nav-history" data-sub-view="history" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('history')"><i class="fas fa-history w-6 mr-2"></i>My History</a>
                             <a href="#" id="nav-bank" data-sub-view="bank" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold" onclick="showStudentSubView('bank')"><i class="fas fa-database w-6 mr-2"></i>Question Bank</a>
                             <a href="#" id="nav-year-end" data-sub-view="year-end" class="sidebar-link hover:bg-slate-700 flex items-center px-4 py-2 rounded-lg font-semibold hidden" onclick="showStudentSubView('year-end')"><i class="fas fa-file-alt w-6 mr-2"></i>Year-End Paper</a>
@@ -264,6 +265,7 @@
         let score = 0;
         let dailyPerformanceChart = null;
         let questionBankData = [];
+        let selectedQuestionPaperSubject = null;
         
         // --- View Controller ---
         function changeView(viewId) {
@@ -304,10 +306,12 @@
                 allHistory[currentStudent.id] = [];
             }
             
+            const topicLabel = window.currentQuizParams?.topic || (window.currentQuizParams?.mode === 'question-paper' ? 'Question Paper' : 'General Practice');
+
             const quizResult = {
                 date: new Date().toISOString(),
                 subject: window.currentQuizParams.subject,
-                topic: window.currentQuizParams.topic,
+                topic: topicLabel,
                 score: score,
                 total: questions.length,
                 results: questions.map((q, i) => ({
@@ -434,6 +438,8 @@
                 renderStudentDashboard(contentArea);
             } else if (subView === 'quiz-setup') {
                 renderQuizSetup(contentArea);
+            } else if (subView === 'question-paper') {
+                renderQuestionPaperView(contentArea);
             } else if (subView === 'history') {
                 renderHistoryView(contentArea);
             } else if (subView === 'bank') {
@@ -495,6 +501,91 @@
         function renderQuizSetup(container) {
             container.innerHTML = `<div id="quiz-setup-container" class="space-y-8"></div>`;
             renderSubjectSelection();
+        }
+
+        function renderQuestionPaperView(container) {
+            const subjects = Object.keys(masterConfig[currentStudent.level] || {});
+            selectedQuestionPaperSubject = null;
+            if (!subjects.length) {
+                container.innerHTML = '<p class="text-center text-gray-500 text-lg bg-white p-8 rounded-lg shadow-md">No subjects are available for this level yet.</p>';
+                return;
+            }
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 card-animated">
+                        <h2 class="text-2xl font-bold text-slate-900">Generate a Question Paper</h2>
+                        <p class="text-slate-600 mt-2">Pick a subject to quickly generate a fresh set of questions. Answers will be checked only after you submit your responses, and every new question will be stored in your question bank.</p>
+                        <div id="question-paper-subjects" class="grid grid-cols-2 gap-4 mt-6">
+                            ${subjects.map(s => `
+                                <button class="selection-card p-6 bg-slate-50 rounded-lg border-2 border-transparent text-center relative" data-subject="${s}" onclick="selectQuestionPaperSubject(this, '${s}')">
+                                    ${s}
+                                    <span class="check-icon hidden absolute top-2 right-2 text-indigo-600"><i class="fas fa-check-circle"></i></span>
+                                </button>
+                            `).join('')}
+                        </div>
+                        <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                            <label for="question-paper-count" class="text-sm font-semibold text-slate-700">Number of Questions</label>
+                            <select id="question-paper-count" class="p-3 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500">
+                                <option value="5">5 Questions</option>
+                                <option value="8">8 Questions</option>
+                                <option value="10" selected>10 Questions</option>
+                            </select>
+                        </div>
+                        <button id="generate-question-paper" class="btn-interactive mt-6 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg" onclick="generateQuestionPaper()">
+                            <i class="fas fa-magic mr-2"></i>Generate Question Paper
+                        </button>
+                        <p id="question-paper-error" class="text-sm text-red-500 mt-3 hidden">Please choose a subject before generating.</p>
+                    </div>
+                    <div id="question-paper-runner"></div>
+                </div>
+            `;
+        }
+
+        function selectQuestionPaperSubject(element, subject) {
+            document.querySelectorAll('#question-paper-subjects .selection-card').forEach(btn => {
+                btn.classList.remove('selected');
+                const icon = btn.querySelector('.check-icon');
+                if (icon) {
+                    icon.classList.add('hidden');
+                }
+            });
+            element.classList.add('selected');
+            const icon = element.querySelector('.check-icon');
+            if (icon) {
+                icon.classList.remove('hidden');
+            }
+            selectedQuestionPaperSubject = subject;
+            const errorEl = document.getElementById('question-paper-error');
+            if (errorEl) {
+                errorEl.classList.add('hidden');
+            }
+        }
+
+        function generateQuestionPaper() {
+            if (!selectedQuestionPaperSubject) {
+                const errorEl = document.getElementById('question-paper-error');
+                if (errorEl) {
+                    errorEl.classList.remove('hidden');
+                }
+                return;
+            }
+
+            const countEl = document.getElementById('question-paper-count');
+            const questionCount = countEl ? parseInt(countEl.value, 10) : 10;
+            window.currentQuizParams = {
+                classLevel: currentStudent.level,
+                subject: selectedQuestionPaperSubject,
+                topic: 'Question Paper',
+                difficulty: 'Mixed',
+                mode: 'question-paper',
+                questionCount
+            };
+
+            const runner = document.getElementById('question-paper-runner');
+            if (runner) {
+                renderQuizInterface(runner, window.currentQuizParams);
+                runner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
 
         function renderSubjectSelection() {
@@ -583,7 +674,11 @@
                     <button id="restart-button" class="hidden btn-interactive w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-lg" onclick="showStudentSubView('quiz-setup')">Take Another Quiz</button>
                 </div>
             `;
-            fetchQuestions(params);
+            if (params && params.mode === 'question-paper') {
+                fetchQuestionPaper(params);
+            } else {
+                fetchQuestions(params);
+            }
         }
 
         async function fetchQuestions(params) {
@@ -593,7 +688,7 @@
                 const previousQuestions = history
                     .filter(test => test.topic === params.topic)
                     .flatMap(test => test.results.map(r => r.question));
-                
+
                 params.previous_questions = [...new Set(previousQuestions)];
 
                 if (params.subject === 'English') {
@@ -605,6 +700,30 @@
             } catch (error) {
                 console.error("Error fetching questions:", error);
                 document.getElementById('loader-container').innerHTML = `<p class="text-red-500 text-center">Sorry, something went wrong fetching questions. Please try again.</p>`;
+            }
+        }
+
+        async function fetchQuestionPaper(params) {
+            document.getElementById('loader-container').classList.remove('hidden');
+            try {
+                const history = getHistory(currentStudent.id);
+                const previousQuestions = history
+                    .filter(test => test.subject === params.subject && test.topic === params.topic)
+                    .flatMap(test => test.results.map(r => r.question));
+
+                const requestPayload = {
+                    classLevel: params.classLevel,
+                    subject: params.subject,
+                    questionCount: params.questionCount,
+                    previous_questions: [...new Set(previousQuestions)]
+                };
+
+                const response = await callBackendAPI('/api/question-paper', requestPayload);
+                questions = response.questions;
+                displayQuestions();
+            } catch (error) {
+                console.error("Error fetching question paper:", error);
+                document.getElementById('loader-container').innerHTML = `<p class="text-red-500 text-center">Sorry, something went wrong while generating the question paper. Please try again.</p>`;
             }
         }
         
