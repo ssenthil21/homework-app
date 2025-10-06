@@ -297,12 +297,41 @@ def _handle_year_end_paper(data):
     if class_level != 'P3':
         return _json_error("Year-end paper generation is currently supported for Primary 3 only.")
 
+    difficulty_input = (data.get('difficulty') or '').strip().lower()
+    normalized_difficulty = ''.join(ch for ch in difficulty_input if ch.isalnum())
+    difficulty_map = {
+        'medium': 'medium',
+        'med': 'medium',
+        'mediumhard': 'medium-hard',
+        'mediumhardmix': 'medium-hard',
+        'mediumtohardmix': 'medium-hard',
+        'hard': 'hard'
+    }
+    difficulty_level = difficulty_map.get(normalized_difficulty, 'medium-hard')
+
+    if difficulty_level == 'medium':
+        difficulty_sentence = (
+            "Ensure every question reflects medium difficulty suitable for confident Primary 3 pupils preparing for the year-end assessment."
+        )
+    elif difficulty_level == 'hard':
+        difficulty_sentence = (
+            "Ensure every question is hard difficulty, stretching capable Primary 3 pupils while staying within MOE expectations."
+        )
+    else:
+        difficulty_sentence = (
+            "Ensure the questions span medium to hard difficulty, mirroring the rigour of Primary 3 year-end examinations."
+        )
+
     subjects_input = data.get('subjects')
     subjects = {}
     if isinstance(subjects_input, dict):
         for subject, topics in subjects_input.items():
-            if isinstance(topics, list) and topics:
-                subjects[subject] = topics
+            if not isinstance(topics, list):
+                continue
+            valid_topic_list = P3_YEAR_END_TOPICS.get(subject, [])
+            filtered_topics = [topic for topic in topics if topic in valid_topic_list]
+            if filtered_topics:
+                subjects[subject] = filtered_topics
 
     for subject, default_topics in P3_YEAR_END_TOPICS.items():
         subjects.setdefault(subject, default_topics)
@@ -321,25 +350,26 @@ def _handle_year_end_paper(data):
         "Create a complete Primary 3 practice paper with separate sections for English, Mathematics, and Science. "
         "Follow these requirements:\n"
         "1. Present the paper in three sections (English, Mathematics, Science) in that order with clear section titles.\n"
-        "2. Use only these Primary 3 topics:\n"
+        "2. Use only these Primary 3 topics and tag every question with a 'topic' field that matches one of them exactly:\n"
         f"{topic_text}\n"
-        "3. Provide an overall paper title and recommended total duration in minutes.\n"
-        "4. English section (align with Paper 2 Language Use & Comprehension):\n"
+        f"3. {difficulty_sentence}\n"
+        "4. Provide an overall paper title and recommended total duration in minutes.\n"
+        "5. English section (align with Paper 2 Language Use & Comprehension):\n"
         "   • Include section instructions suitable for Primary 3 students.\n"
         "   • Add 3 Vocabulary MCQ questions and 3 Grammar MCQ questions.\n"
         "   • Add 2 Grammar Cloze questions. Each Grammar Cloze question should contain a short passage with three blanks, each blank offering four MCQ options.\n"
         "   • Add 1 Comprehension Cloze passage with five blanks (treated as five questions) and four MCQ options for each blank.\n"
         "   • Add 2 Sentence Combining questions that are open-ended.\n"
         "   • Add 2 Comprehension open-ended questions tied to one short passage.\n"
-        "5. Mathematics section:\n"
+        "6. Mathematics section:\n"
         "   • Provide section instructions, suggested time, and total marks.\n"
         "   • Include 10 questions: 4 MCQ, 4 short-answer, and 2 structured word problems that expect working steps.\n"
-        "6. Science section:\n"
+        "7. Science section:\n"
         "   • Provide section instructions, suggested time, and total marks.\n"
         "   • Include 8 questions: 4 MCQ and 4 open-ended questions focusing on explanation or application of concepts.\n"
-        "7. For every question, include an answer and, where helpful, a short explanation aligned with MOE marking expectations.\n"
-        "8. Number questions within each section starting from Q1.\n"
-        "9. Return the paper strictly as JSON that follows the provided schema."
+        "8. For every question, include an answer and, where helpful, a short explanation aligned with MOE marking expectations.\n"
+        "9. Number questions within each section starting from Q1.\n"
+        "10. Return the paper strictly as JSON that follows the provided schema."
     )
 
     generation_config = {
@@ -368,11 +398,12 @@ def _handle_year_end_paper(data):
                                         "type": {"type": "STRING"},
                                         "prompt": {"type": "STRING"},
                                         "options": {"type": "ARRAY", "items": {"type": "STRING"}},
+                                        "topic": {"type": "STRING"},
                                         "marks": {"type": "INTEGER"},
                                         "answer": {"type": "STRING"},
                                         "answer_explanation": {"type": "STRING"}
                                     },
-                                    "required": ["number", "type", "prompt", "answer"]
+                                    "required": ["number", "type", "prompt", "answer", "topic"]
                                 }
                             }
                         },

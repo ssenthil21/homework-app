@@ -256,6 +256,11 @@
             'Sentence Combining': `Ask students to combine two related sentences into one well-formed sentence without changing the original meaning.`,
             'Comprehension (Open-Ended)': `Use a single 'image' field with a URL that applies to all five questions. Display the image above each open-ended question about the image.`
         };
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text ?? '';
+            return div.innerHTML;
+        }
         const stickers = ['⭐', '👍', '🎉', '🏆', '💯', '✨', '🤩', '🚀'];
 
         // --- App State ---
@@ -982,11 +987,72 @@
                 return;
             }
 
+            const subjectsConfig = masterConfig['P3'];
+            const topicSelectorsHtml = Object.entries(subjectsConfig).map(([subject, topics]) => {
+                const subjectKey = subject.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                const checkboxList = topics.map((topic, index) => {
+                    const checkboxId = `year-end-${subjectKey}-${index}`;
+                    const escapedTopic = escapeHtml(topic);
+                    return `
+                        <label for="${checkboxId}" class="selection-card flex items-start gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:border-indigo-400">
+                            <input id="${checkboxId}" type="checkbox" class="mt-1 year-end-topic-checkbox" name="year-end-topic-${subject}" value="${escapedTopic}" checked>
+                            <span class="text-sm text-slate-700 leading-snug">${escapedTopic}</span>
+                        </label>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <h3 class="text-lg font-semibold text-slate-800">${escapeHtml(subject)}</h3>
+                            <div class="flex gap-3 text-sm font-semibold">
+                                <button type="button" class="text-indigo-600 hover:text-indigo-700" onclick="toggleYearEndSubject('${subject}', true)">Select all</button>
+                                <button type="button" class="text-slate-500 hover:text-slate-600" onclick="toggleYearEndSubject('${subject}', false)">Clear all</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            ${checkboxList}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const difficultyControls = `
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                    <h3 class="text-lg font-semibold text-slate-800">Difficulty Level</h3>
+                    <p class="text-sm text-slate-600">Choose how challenging you want the practice paper to be. All settings align with MOE Primary 3 expectations.</p>
+                    <div class="mt-3 flex flex-col md:flex-row gap-3">
+                        <label class="selection-card flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:border-indigo-400">
+                            <input type="radio" name="year-end-difficulty" value="medium" class="text-indigo-600">
+                            <span class="text-sm text-slate-700">Medium</span>
+                        </label>
+                        <label class="selection-card flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:border-indigo-400">
+                            <input type="radio" name="year-end-difficulty" value="medium-hard" class="text-indigo-600" checked>
+                            <span class="text-sm text-slate-700">Medium to Hard Mix</span>
+                        </label>
+                        <label class="selection-card flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:border-indigo-400">
+                            <input type="radio" name="year-end-difficulty" value="hard" class="text-indigo-600">
+                            <span class="text-sm text-slate-700">Hard</span>
+                        </label>
+                    </div>
+                </div>
+            `;
+
             container.innerHTML = `
                 <div class="space-y-6">
                     <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
                         <h2 class="text-2xl font-bold text-slate-900">Primary 3 Year-End Practice Paper</h2>
                         <p class="mt-2 text-slate-600">Generate a full-length mock examination aligned with the Singapore MOE syllabus for English, Mathematics and Science. Each paper comes with suggested answers for self-marking.</p>
+                        <div class="mt-6 space-y-6">
+                            ${difficultyControls}
+                            <div>
+                                <h3 class="text-lg font-semibold text-slate-800">Select Topics for Each Subject</h3>
+                                <p class="text-sm text-slate-600 mt-1">All topics are selected by default. Uncheck any topics you would like to exclude from this paper.</p>
+                                <div class="mt-4 space-y-4">
+                                    ${topicSelectorsHtml}
+                                </div>
+                            </div>
+                        </div>
                         <div class="mt-6 flex flex-col sm:flex-row gap-3">
                             <button id="generate-year-end-button" class="btn-interactive bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg" onclick="generateYearEndPaper()"><i class="fas fa-file-alt mr-2"></i>Generate Practice Paper</button>
                             <button class="btn-interactive bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-3 px-4 rounded-lg" onclick="showStudentSubView('quiz-setup')"><i class="fas fa-undo mr-2"></i>Back to Quizzes</button>
@@ -996,6 +1062,13 @@
                     <div id="year-end-paper-container" class="space-y-6"></div>
                 </div>
             `;
+        }
+
+        function toggleYearEndSubject(subject, selectAll) {
+            const checkboxes = document.querySelectorAll(`input[name="year-end-topic-${subject}"]`);
+            checkboxes.forEach(cb => {
+                cb.checked = selectAll;
+            });
         }
 
         async function generateYearEndPaper() {
@@ -1010,6 +1083,26 @@
                 return;
             }
 
+            const subjectTopics = {};
+            let missingSelection = null;
+            Object.entries(masterConfig['P3']).forEach(([subject]) => {
+                const selectedTopics = Array.from(document.querySelectorAll(`input[name="year-end-topic-${subject}"]:checked`)).map(cb => cb.value);
+                if (selectedTopics.length === 0) {
+                    missingSelection = subject;
+                } else {
+                    subjectTopics[subject] = selectedTopics;
+                }
+            });
+
+            const difficultyInput = document.querySelector('input[name="year-end-difficulty"]:checked');
+            const difficulty = difficultyInput ? difficultyInput.value : 'medium-hard';
+
+            if (missingSelection) {
+                statusEl.classList.remove('hidden');
+                statusEl.textContent = `Please select at least one topic for ${missingSelection} before generating the paper.`;
+                return;
+            }
+
             const originalButtonText = button.innerHTML;
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
@@ -1020,11 +1113,12 @@
             try {
                 const payload = {
                     classLevel: currentStudent.level,
-                    subjects: masterConfig['P3']
+                    subjects: subjectTopics,
+                    difficulty
                 };
                 const paper = await callBackendAPI('/api/generate-year-end', payload);
                 displayYearEndPaper(paper);
-                statusEl.textContent = 'Paper generated successfully! Scroll down to view the questions and answer guide.';
+                statusEl.textContent = 'Paper generated successfully! Scroll down to attempt the questions, then reveal the answer key when you are ready to check your work.';
             } catch (error) {
                 console.error('Error generating year-end paper:', error);
                 statusEl.textContent = 'Sorry, something went wrong while generating the paper. Please try again later.';
@@ -1053,6 +1147,8 @@
             `;
             paperContainer.innerHTML = headerHtml;
 
+            const answerKeyEntries = [];
+
             paper.sections.forEach(section => {
                 const sectionTitle = section.section_title || `${section.subject || 'Section'} Paper`;
                 const instructions = section.instructions ? `<p class="mt-2 text-slate-600 whitespace-pre-line">${section.instructions}</p>` : '';
@@ -1061,20 +1157,38 @@
 
                 const questionsHtml = (section.questions || []).map(question => {
                     const optionsHtml = Array.isArray(question.options) && question.options.length
-                        ? `<ul class="mt-3 space-y-2">${question.options.map(opt => `<li class="bg-white/60 border border-slate-200 rounded-lg px-3 py-2"><span class="font-medium">${opt}</span></li>`).join('')}</ul>`
-                        : '';
-                    const explanationHtml = question.answer_explanation
-                        ? `<p class="mt-2 text-sm text-slate-600"><strong>Explanation:</strong> ${question.answer_explanation}</p>`
+                        ? `<ul class="mt-3 space-y-2">${question.options.map(opt => `<li class="bg-white/60 border border-slate-200 rounded-lg px-3 py-2"><span class="font-medium">${escapeHtml(opt)}</span></li>`).join('')}</ul>`
                         : '';
                     const marksHtml = question.marks ? `<p class="mt-2 text-xs uppercase tracking-wide text-slate-500">Marks: ${question.marks}</p>` : '';
+                    const topicHtml = question.topic ? `<p class="mt-2 text-xs text-slate-500"><strong>Topic:</strong> ${escapeHtml(question.topic)}</p>` : '';
+                    const questionNumber = question.number || '';
+                    const promptHtml = `${questionNumber ? `${questionNumber}. ` : ''}${escapeHtml(question.prompt || '')}`;
+
+                    if (question.answer || question.answer_explanation) {
+                        const answerLines = [];
+                        if (question.answer) {
+                            answerLines.push(`<p class="mt-2 text-sm text-indigo-700"><strong>Answer:</strong> ${escapeHtml(question.answer)}</p>`);
+                        }
+                        if (question.answer_explanation) {
+                            answerLines.push(`<p class="mt-2 text-sm text-slate-600"><strong>Explanation:</strong> ${escapeHtml(question.answer_explanation)}</p>`);
+                        }
+
+                        answerKeyEntries.push(`
+                            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                <p class="font-semibold text-slate-800">${promptHtml}</p>
+                                ${answerLines.join('')}
+                                ${marksHtml}
+                                ${topicHtml}
+                            </div>
+                        `);
+                    }
 
                     return `
                         <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                            <p class="font-semibold text-slate-800">${question.number || ''}. ${question.prompt || ''}</p>
+                            <p class="font-semibold text-slate-800">${promptHtml}</p>
                             ${optionsHtml}
-                            <p class="mt-3 text-sm text-indigo-700"><strong>Answer:</strong> ${question.answer || 'Refer to teacher guidance.'}</p>
-                            ${explanationHtml}
                             ${marksHtml}
+                            ${topicHtml}
                         </div>
                     `;
                 }).join('');
@@ -1094,6 +1208,37 @@
                     </div>
                 `;
             });
+
+            if (answerKeyEntries.length) {
+                paperContainer.innerHTML += `
+                    <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <h4 class="text-2xl font-bold text-slate-900">Answer Key</h4>
+                                <p class="text-sm text-slate-600">Reveal the solutions after you have completed the paper.</p>
+                            </div>
+                            <button type="button" class="btn-interactive bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg" onclick="toggleYearEndAnswerKey()">
+                                <span id="year-end-answer-key-toggle-label">Show Answer Key</span>
+                            </button>
+                        </div>
+                        <div id="year-end-answer-key" class="mt-6 space-y-4 hidden">
+                            ${answerKeyEntries.join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function toggleYearEndAnswerKey() {
+            const answerKeyEl = document.getElementById('year-end-answer-key');
+            const toggleLabel = document.getElementById('year-end-answer-key-toggle-label');
+            if (!answerKeyEl || !toggleLabel) {
+                return;
+            }
+
+            const willShow = answerKeyEl.classList.contains('hidden');
+            answerKeyEl.classList.toggle('hidden');
+            toggleLabel.textContent = willShow ? 'Hide Answer Key' : 'Show Answer Key';
         }
 
         function downloadQuestionBank() {
