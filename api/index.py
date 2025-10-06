@@ -177,6 +177,71 @@ def _handle_generate_quiz(data):
     return call_gemini_api(prompt, generation_config)
 
 
+def _handle_question_paper(data):
+    data = data or {}
+    class_level = data.get('classLevel')
+    subject = data.get('subject')
+
+    if not class_level or not subject:
+        return _json_error("Missing 'classLevel' or 'subject'.")
+
+    try:
+        question_count = int(data.get('questionCount', 10))
+    except (TypeError, ValueError):
+        return _json_error("'questionCount' must be a number.")
+
+    if question_count < 1:
+        return _json_error("'questionCount' must be at least 1.")
+
+    question_count = min(question_count, 15)
+
+    prompt = (
+        f"Act as a Primary School teacher in Singapore. "
+        f"Create a question paper with exactly {question_count} questions for a {class_level} student. "
+        f"The subject is {subject}. "
+        "Provide a healthy mix of question types that reflects the MOE syllabus: include several 'single-choice' multiple-choice questions, at least one 'multi-select' question, and at least two 'free-text' questions. "
+        "For all multiple-choice or multi-select questions, include four options with clear wording. "
+        "Do not include answer keys, hints, or explanations in the question paper itself. "
+    )
+
+    previous_questions = data.get('previous_questions', [])
+    if previous_questions:
+        previous_questions_text = "\n".join([f"- {q}" for q in previous_questions])
+        prompt += (
+            "\nAvoid reusing any of the following questions that the student has already seen for this subject:\n"
+            f"{previous_questions_text}\n"
+            "Create fresh variations with different numbers, scenarios, or phrasing wherever possible."
+        )
+
+    prompt += (
+        "\nReturn a single JSON object with a key 'questions', which is an array of question objects. "
+        "Each question object must contain: 'type' (one of 'single-choice', 'multi-select', or 'free-text'), "
+        "a 'question' field containing the question text, and an 'options' array of four strings for choice-based questions."
+    )
+
+    generation_config = {
+        "responseMimeType": "application/json",
+        "responseSchema": {
+            "type": "OBJECT",
+            "properties": {
+                "questions": {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "type": {"type": "STRING"},
+                            "question": {"type": "STRING"},
+                            "options": {"type": "ARRAY", "items": {"type": "STRING"}}
+                        },
+                        "required": ["type", "question"]
+                    }
+                }
+            }
+        }
+    }
+
+    return call_gemini_api(prompt, generation_config)
+
 
 def _dispatch_to_handler(target_path, data):
     route_map = {
@@ -184,6 +249,7 @@ def _dispatch_to_handler(target_path, data):
         'generate-year-end': _handle_year_end_paper,
         'evaluate': _handle_evaluate,
         'get-hint': _handle_hint,
+        'question-paper': _handle_question_paper,
     }
 
     handler = route_map.get(target_path)
@@ -213,6 +279,12 @@ def vercel_dispatch_handler():
 def generate_handler():
     data = request.get_json()
     return _handle_generate_quiz(data)
+
+
+@app.route('/api/question-paper', methods=['POST'])
+def question_paper_handler():
+    data = request.get_json()
+    return _handle_question_paper(data)
 
 
 def _handle_year_end_paper(data):
@@ -325,6 +397,10 @@ def _handle_evaluate(data):
     if not data or 'questions' not in data or 'answers' not in data:
         return _json_error("Missing 'questions' or 'answers' in request.")
 
+    question_count = len(data.get('questions', []))
+    if question_count == 0:
+        return _json_error("At least one question is required for evaluation.")
+
     questions_and_answers_text = ""
     for i, q in enumerate(data['questions']):
         answer_text = str(data['answers'][i])  # Convert answer to string for the prompt
@@ -338,7 +414,7 @@ def _handle_evaluate(data):
         f"Act as a Primary School teacher in Singapore. "
         f"Evaluate the following questions and student answers. For each one, provide whether it is correct, the correct answer (be concise), and a simple, encouraging one-sentence explanation. "
         f"Here are the questions and answers:\n{questions_and_answers_text}"
-        f"Return the response as a single JSON object with a key 'evaluation', which is an array of 5 objects. "
+        f"Return the response as a single JSON object with a key 'evaluation', which is an array of {question_count} objects. "
         f"Each object must have three keys: 'is_correct' (boolean), 'correct_answer' (string), and 'explanation' (string)."
     )
 
